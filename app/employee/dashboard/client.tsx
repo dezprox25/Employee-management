@@ -7,10 +7,9 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Clock, AlertCircle, LayoutDashboard, CalendarDays, ListChecks, Loader2 } from "lucide-react"
-import Punch from "@/components/employee/punch"
 import { CardEntrance } from "@/components/animations/card-entrance"
 import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar"
-import { cn } from "@/lib/utils"
+import { cn, formatTime12hCompactFromString, formatTime12hFromDate } from "@/lib/utils"
 import LeavemManagement from '@/app/employee/leaves/page'
 import AttendanceNanagement from '@/app/employee/attendance/page'
 import { useToast } from "@/hooks/use-toast"
@@ -335,6 +334,12 @@ export default function EmployeeDashboardClient() {
       if (!isPunchedIn) return
       // Safari reliability: pagehide fires even on bfcache
       sendAutoPunchOut("pagehide")
+      // Best-effort local checkout to update state; may not complete before unload
+      try {
+        void handleCheckOut()
+      } catch (err) {
+        console.warn("[auto-punch-out] local handleCheckOut failed", err)
+      }
     }
 
     if (isPunchedIn) {
@@ -658,7 +663,7 @@ export default function EmployeeDashboardClient() {
                           : "Learning Intern"}
                     </p>
                     <p className="text-2xl font-bold mt-2">
-                      Working Hours: {userData?.work_time_start} - {userData?.work_time_end}
+                      Working Hours: {formatTime12hCompactFromString(userData?.work_time_start)} - {formatTime12hCompactFromString(userData?.work_time_end)}
                     </p>
                   </CardContent>
                   <img src="/employee-working.png" alt="" className="w-96 lg:absolute top-0 right-10" />
@@ -675,7 +680,7 @@ export default function EmployeeDashboardClient() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="text-center">
-                      <div className="text-4xl font-bold font-mono">{currentTime.toLocaleTimeString()}</div>
+                      <div className="text-4xl font-bold font-mono">{formatTime12hFromDate(currentTime)}</div>
                       <div className="text-sm text-muted-foreground mt-2">{currentTime.toLocaleDateString()}</div>
                     </div>
 

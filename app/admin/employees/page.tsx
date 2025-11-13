@@ -1,6 +1,7 @@
 "use client"
 
 import { createClient } from "@/lib/supabase/client"
+import { formatTime12hCompactFromString } from "@/lib/utils"
 import { useEffect, useState, useMemo, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -308,14 +309,31 @@ export default function EmployeesPage() {
       return
     }
     try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 10000)
+
       const res = await fetch("/api/admin/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: resetUserId, new_password: pwd }),
+        credentials: "include",
+        cache: "no-store",
+        signal: controller.signal,
       })
+      clearTimeout(timeout)
+
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        toast({ variant: "destructive", title: "Reset failed", description: data?.error || `Server returned ${res.status}` })
+        const code = (data as any)?.code
+        const description =
+          code === "NOT_AUTHENTICATED"
+            ? "Unauthorized: please log in as an admin or enable code admin mode."
+            : code === "NOT_ADMIN"
+            ? "Forbidden: only admins can reset passwords."
+            : code === "VALIDATION_PASSWORD"
+            ? data?.error || "Password must be at least 8 characters with letters and numbers."
+            : data?.error || `Server returned ${res.status}`
+        toast({ variant: "destructive", title: "Reset failed", description })
         return
       }
       toast({ title: "Password updated", description: "Employee password has been reset" })
@@ -323,7 +341,12 @@ export default function EmployeesPage() {
       setResetUserId(null)
       setResetNewPassword("")
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Network error", description: error?.message || "Failed to reset password" })
+      const isAbort = error?.name === "AbortError"
+      toast({
+        variant: "destructive",
+        title: isAbort ? "Network timeout" : "Network error",
+        description: isAbort ? "Request timed out. Please try again." : error?.message || "Failed to reset password",
+      })
     }
   }
 
@@ -439,8 +462,8 @@ export default function EmployeesPage() {
                       : "Intern (Learning)"}
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Work Hours:</span> {employee.work_time_start} -{" "}
-                  {employee.work_time_end}
+                  <span className="text-muted-foreground">Work Hours:</span> {formatTime12hCompactFromString(employee.work_time_start)} -{" "}
+                  {formatTime12hCompactFromString(employee.work_time_end)}
                 </div>
                 <div>
                   <span className="text-muted-foreground">Leaves:</span> {employee.used_leaves}/{employee.total_leaves}

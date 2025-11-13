@@ -1,15 +1,11 @@
 "use client"
-import { ReactNode, useMemo } from "react"
-import { usePathname, useRouter } from "next/navigation"
+import { ReactNode } from "react"
+import { usePathname } from "next/navigation"
 import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar"
-import { LayoutDashboard, Users, CalendarDays, BarChart3, FileText, LogOut } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
-import { ThemeToggle } from "@/components/ui/theme-toggle"
+import { LayoutDashboard, Users, CalendarDays, BarChart3 } from "lucide-react"
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const router = useRouter()
-  const supabase = useMemo(() => createClient(), [])
 
   // Hide sidebar on admin login route to keep login standalone
   const showSidebar = !(pathname?.startsWith("/admin/login"))
@@ -42,16 +38,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     // },
   ]
 
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut()
-    } catch { }
-    if (typeof document !== "undefined") {
-      document.cookie = "admin_code_login=; Max-Age=0; path=/"
-    }
-    router.replace("/")
-  }
-
   return (
     <div className="h-screen flex">
       {showSidebar && (
@@ -63,19 +49,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 {adminLinks.map((link, idx) => (
                   <SidebarLink key={idx} link={{ label: link.label, href: link.href, icon: link.icon }} />
                 ))}
-              </div>
-              {/* Bottom actions: Logout and Theme Toggle */}
-              <div className="mt-auto  items-center gap-2 px-1 pt-4 border-t border-neutral-200/60 dark:border-neutral-800">
-                <ThemeToggle />
-
-                <SidebarLink
-                  link={{
-                    label: "Logout",
-                    href: "#",
-                    icon: <LogOut className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />,
-                  }}
-                  onClick={handleLogout}
-                />
               </div>
             </div>
           </SidebarBody>

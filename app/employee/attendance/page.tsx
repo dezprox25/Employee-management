@@ -285,7 +285,7 @@ export default function EmployeeAttendancePage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Total Hours</p>
-                    <p className="text-2xl sm:text-3xl font-semibold text-accent">{totalHours.toFixed(1)}</p>
+                    <p className="text-2xl sm:text-3xl font-semibold text-black">{totalHours.toFixed(1)}</p>
                   </div>
                   <Clock className="w-8 h-8 text-accent/40" />
                 </div>
@@ -340,7 +340,7 @@ export default function EmployeeAttendancePage() {
                       <TableHead className="text-xs sm:text-sm font-semibold text-muted-foreground">Date</TableHead>
                       <TableHead className="text-xs sm:text-sm font-semibold text-muted-foreground">Login</TableHead>
                       <TableHead className="text-xs sm:text-sm font-semibold text-muted-foreground">Logout</TableHead>
-                      <TableHead className="text-xs sm:text-sm font-semibold text-muted-foreground">Hours</TableHead>
+                      <TableHead className="text-xs sm:text-sm font-semibold text-muted-foreground">Duration</TableHead>
                       <TableHead className="text-xs sm:text-sm font-semibold text-muted-foreground">Status</TableHead>
                       <TableHead className="text-xs sm:text-sm font-semibold text-muted-foreground">Reason</TableHead>
                     </TableRow>
@@ -359,12 +359,12 @@ export default function EmployeeAttendancePage() {
                         <TableCell className="text-xs sm:text-sm text-muted-foreground py-3">
                           {formatTimestamp(r.logout_time)}
                         </TableCell>
-                        <TableCell className="text-xs sm:text-sm font-medium text-accent py-3">
-                          {formatHours(r.total_hours)}h
+                        <TableCell className="text-xs sm:text-sm font-medium text-black py-3">
+                          {formatHours(r.total_hours)} mins
                         </TableCell>
-                        <TableCell className="text-xs sm:text-sm capitalize py-3">
+                        <TableCell className="text-xs sm:text-sm capitalize py-3 text-black">
                           <span
-                            className={`inline-block px-2 py-1 rounded text-xs font-medium transition-smooth ${
+                            className={`inline-block px-2 py-1 text-black rounded text-xs font-medium transition-smooth ${
                               r.status === "present"
                                 ? "bg-accent/10 text-accent"
                                 : r.status === "absent"
