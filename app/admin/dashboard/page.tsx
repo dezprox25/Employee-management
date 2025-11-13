@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   BarChart,
   Bar,
-  XAxis,
+  XAxis,   
   YAxis,
   CartesianGrid,
   Tooltip,
