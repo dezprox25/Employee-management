@@ -325,12 +325,12 @@ export const DesktopSidebar = ({ className, children, ...props }: MotionDivChild
           className,
         )}
         animate={{
-          width: animate ? (open ? "300px" : "80px") : "300px",
+          width: animate ? (open ? "300px" : "60px") : "300px",
         }}
         transition={{ duration: 0.25, ease: "easeInOut" }}
         {...props}
       >
-        <div className="flex items-center justify-between mb-6">
+        <div className={cn("flex  items-center justify-between ", open ? "" : "flex-col")} >
           <a href="/" aria-label="Home" className="flex items-center gap-2">
             {open ? (
               <Image
@@ -342,7 +342,7 @@ export const DesktopSidebar = ({ className, children, ...props }: MotionDivChild
                 className="h-8 w-auto"
               />
             ) : (
-              <Image src="/dezproxlogo.png" alt="Dezprox" width={28} height={28} />
+              <Image src="/dezproxlogo.png" alt="Dezprox" className="my-5" width={32} height={32} />
             )}
           </a>
           {/* Toggle button for smooth open/close */}
