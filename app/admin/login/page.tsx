@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-// Supabase auth temporarily disabled on admin login (code-only)
+// Admin login uses Supabase auth and role-based redirect
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { isValidAdminCredentials } from "@/lib/admin/credentials"
+import { createClient } from "@/lib/supabase/client"
 import { Eye, EyeOff } from "lucide-react"
 
 export default function AdminLoginPage() {
@@ -34,14 +35,31 @@ export default function AdminLoginPage() {
         const remaining = Math.ceil((lockUntil - Date.now()) / 60000)
         throw new Error(`Too many attempts. Try again in ${remaining} min`)
       }
+      const supabase = createClient()
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) throw error
 
-      // Code-only credential check
-      if (isValidAdminCredentials(email, password)) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) throw new Error("Login failed")
+
+      const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
+      const role = profile?.role
+
+      if (role === "admin") {
+        router.push("/admin/dashboard")
+        return
+      }
+
+      // Optional dev fallback: allow code-admin login if env enables and creds match
+      if (process.env.NEXT_PUBLIC_ALLOW_CODE_ADMIN === "true" && isValidAdminCredentials(email, password)) {
         document.cookie = "admin_code_login=true; path=/; max-age=86400; samesite=lax"
         router.push("/admin/dashboard")
         return
       }
-      throw new Error("Invalid credentials")
+
+      router.push("/employee/dashboard")
     } catch (error: unknown) {
       // Track failed attempts and lock after 5 failures for 5 minutes
       const key = `loginAttempts:${email}:admin`

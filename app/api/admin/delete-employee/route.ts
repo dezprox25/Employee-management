@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { createClient as createServerClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
+import { z } from "zod"
+import { logSecurityEvent } from "@/lib/log"
 
 interface DeleteBody {
   user_id?: string
@@ -18,27 +20,37 @@ export async function POST(req: Request) {
         data: { user },
       } = await server.auth.getUser()
       if (!user) {
+        logSecurityEvent("unauthenticated_access", { path: "/api/admin/delete-employee" }, "warn")
         return NextResponse.json({ ok: false, error: "Unauthorized", code: "AUTH_UNAUTHORIZED" }, { status: 401 })
       }
 
       const { data: profile } = await server.from("users").select("role").eq("id", user.id).single()
       if (profile?.role !== "admin") {
+        logSecurityEvent("forbidden_non_admin", { path: "/api/admin/delete-employee", userId: user.id }, "warn")
         return NextResponse.json({ ok: false, error: "Forbidden", code: "NOT_ADMIN" }, { status: 403 })
       }
       adminUserId = user.id
     }
 
-    const body = (await req.json().catch(() => ({}))) as DeleteBody
-    const userId = body.user_id?.trim()
-    if (!userId) {
-      return NextResponse.json({ ok: false, error: "Missing required field 'user_id'", code: "VALIDATION_MISSING" }, { status: 400 })
+    const DeleteSchema = z.object({ user_id: z.string().min(1) })
+    const raw = await req.json().catch(() => null)
+    if (!raw) {
+      logSecurityEvent("invalid_json", { path: "/api/admin/delete-employee" }, "warn")
+      return NextResponse.json({ ok: false, error: "Invalid JSON body", code: "VALIDATION_JSON" }, { status: 400 })
     }
+    const parsed = DeleteSchema.safeParse(raw)
+    if (!parsed.success) {
+      logSecurityEvent("schema_validation_error", { path: "/api/admin/delete-employee", errors: parsed.error.flatten().fieldErrors }, "warn")
+      return NextResponse.json({ ok: false, error: "Validation failed", code: "VALIDATION_SCHEMA", details: parsed.error.flatten().fieldErrors }, { status: 400 })
+    }
+    const userId = parsed.data.user_id.trim()
 
     const svc = createServiceClient()
 
     // Prevent deleting admins and self-deletion when authenticated
     const { data: targetProfile, error: readErr } = await svc.from("users").select("id, role").eq("id", userId).single()
     if (readErr) {
+      logSecurityEvent("db_read_error", { path: "/api/admin/delete-employee", userId, error: readErr.message }, "error")
       return NextResponse.json({ ok: false, error: readErr.message, code: (readErr as any)?.code || "READ_ERROR" }, { status: 500 })
     }
     if (!targetProfile) {
@@ -54,7 +66,7 @@ export async function POST(req: Request) {
     // Delete from Supabase Auth; public.users has FK to auth.users(id) ON DELETE CASCADE
     const { error: delErr } = await svc.auth.admin.deleteUser(userId)
     if (delErr) {
-      console.error("[delete-employee] deleteUser error:", delErr.message)
+      logSecurityEvent("delete_failed", { path: "/api/admin/delete-employee", userId, error: delErr.message }, "error")
       return NextResponse.json({ ok: false, error: delErr.message, code: "DELETE_FAILED" }, { status: 400 })
     }
 
@@ -70,7 +82,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true })
   } catch (err: any) {
-    console.error("[delete-employee] unexpected:", err?.message || err)
+    logSecurityEvent("unexpected_error", { path: "/api/admin/delete-employee", error: err?.message || String(err) }, "error")
     return NextResponse.json({ ok: false, error: err?.message || "Server error", code: "UNEXPECTED" }, { status: 500 })
   }
 }

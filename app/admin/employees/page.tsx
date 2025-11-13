@@ -225,6 +225,8 @@ export default function EmployeesPage() {
           password,
           type: newEmployee.type,
         }),
+        credentials: "include",
+        cache: "no-store",
         signal: controller.signal,
       })
       clearTimeout(timeout)
@@ -236,11 +238,22 @@ export default function EmployeesPage() {
 
       if (!res.ok) {
         console.error("[EmployeesPage] add employee failed", { status: res.status, body: data })
-        toast({
-          variant: "destructive",
-          title: "Failed to add employee",
-          description: data?.error || `Server returned ${res.status}`,
-        })
+        const code = data?.code
+        const message =
+          code === "AUTH_UNAUTHORIZED"
+            ? "You are not authenticated. Please log in again."
+            : code === "AUTH_FORBIDDEN"
+            ? "You must be an admin to add employees."
+            : code === "VALIDATION_EMAIL"
+            ? "Invalid email address."
+            : code === "VALIDATION_PASSWORD"
+            ? "Weak password: use at least 8 characters with letters and numbers."
+            : code === "VALIDATION_NAME"
+            ? "Name is required."
+            : code === "VALIDATION_TYPE"
+            ? "Invalid employee type."
+            : data?.error || `Server returned ${res.status}`
+        toast({ variant: "destructive", title: "Failed to add employee", description: message })
         return
       }
 

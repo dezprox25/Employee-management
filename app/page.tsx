@@ -6,6 +6,8 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { useEffect } from "react"
 import { CardEntrance } from "@/components/animations/card-entrance"
+import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler"
+
 
 export default function Home() {
   useEffect(() => {
@@ -38,6 +40,7 @@ export default function Home() {
 
       <CardEntrance delay={0}>
         <div className="text-center space-y-8 relative z-10">
+          <AnimatedThemeToggler className="" />
           <div className="w-40 h-40 rounded-full shadow-[0_3px_15px_rgba(0,0,0,0.2)] mx-auto place-content-center overflow-hidden  ">
             <img src="/dezproxlogo.png" alt="dezprox-logo" className="w-32 h-32 mx-auto rounded-full object-cover" />
           </div>

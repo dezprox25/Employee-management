@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/service"
-import { createClient as createServerClient } from "@/lib/supabase/server"
+import { z } from "zod"
+import { rateLimitCheck, requireAdminAuth } from "@/lib/security/api"
 
-function isValidEmail(email: string) {
-  return /^(?:[a-zA-Z0-9_'^&\-]+(?:\.[a-zA-Z0-9_'^&\-]+)*|"(?:[^"]|\\")+")@(?:(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}|\[(?:\d{1,3}\.){3}\d{1,3}\])$/.test(email)
-}
+const CreateEmployeeSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8).regex(/^(?=.*[A-Za-z])(?=.*\d).+$/, "Password must include letters and numbers"),
+  name: z.string().trim().min(1),
+  type: z.enum(["fulltime", "intern1", "intern2"]).default("fulltime"),
+})
 
 function getWorkTimes(workType: string) {
   switch (workType) {
@@ -20,44 +24,28 @@ function getWorkTimes(workType: string) {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json()
-    const { email, password, name, type = "fulltime" } = body || {}
+    const limited = rateLimitCheck(req, { windowMs: 15 * 60 * 1000, max: 100 })
+    if (limited) return limited
 
-    // Basic form validations
-    if (!email || !password || !name) {
-      return NextResponse.json({ error: "Missing required fields", code: "VALIDATION_MISSING" }, { status: 400 })
-    }
-    if (!isValidEmail(email)) {
-      return NextResponse.json({ error: "Invalid email format", code: "VALIDATION_EMAIL" }, { status: 400 })
-    }
-    if (typeof password !== "string" || password.length < 6) {
-      return NextResponse.json({ error: "Password must be at least 6 characters", code: "VALIDATION_PASSWORD" }, { status: 400 })
-    }
-    const trimmedName = String(name).trim()
-    if (!trimmedName) {
-      return NextResponse.json({ error: "Name cannot be empty", code: "VALIDATION_NAME" }, { status: 400 })
-    }
-
-    // Server-side authentication: allow real Supabase admin OR code-admin cookie
-    const server = await createServerClient()
-    const {
-      data: { user },
-    } = await server.auth.getUser()
-    // Fallback to cookie header for temporary code-admin bypass
-    const cookieHeader = req.headers.get("cookie") || ""
-    const isCodeAdmin = /(?:^|;\s*)admin_code_login=true(?:;|$)/.test(cookieHeader)
-
-    if (!user && !isCodeAdmin) {
-      return NextResponse.json({ error: "Unauthorized", code: "AUTH_UNAUTHORIZED" }, { status: 401 })
-    }
-
-    // If there is a real Supabase user, enforce admin role from public.users
-    if (user) {
-      const { data: currentUser } = await server.from("users").select("role").eq("id", user.id).single()
-      if (currentUser?.role !== "admin") {
-        return NextResponse.json({ error: "Forbidden", code: "AUTH_FORBIDDEN" }, { status: 403 })
+    const parsed = CreateEmployeeSchema.safeParse(await req.json())
+    if (!parsed.success) {
+      const firstErr = parsed.error.issues[0]
+      const codeMap: Record<string, string> = {
+        email: "VALIDATION_EMAIL",
+        password: "VALIDATION_PASSWORD",
+        name: "VALIDATION_NAME",
+        type: "VALIDATION_TYPE",
       }
+      return NextResponse.json(
+        { error: firstErr.message || "Invalid request body", code: codeMap[firstErr.path[0]?.toString?.() || "body"] || "VALIDATION_BODY" },
+        { status: 400 },
+      )
     }
+    const { email, password, name, type } = parsed.data
+    const trimmedName = name.trim()
+
+    const auth = await requireAdminAuth(req)
+    if (!auth.ok) return auth.response
 
     const service = createServiceClient()
     const wt = getWorkTimes(type)
@@ -134,15 +122,7 @@ export async function POST(req: Request) {
           return NextResponse.json({ error: "Database insert failed", code: "DB_INSERT_FAILED" }, { status: 500 })
         }
       } else {
-        // Update the plaintext password for admin visibility
-        const { error: pwUpdateErr } = await service
-          .from("users")
-          .update({ password })
-          .eq("id", newUserId)
-        if (pwUpdateErr) {
-          console.warn("[create-employee] Warning: failed to store plaintext password:", pwUpdateErr.message)
-          // Do not fail creation; continue
-        }
+        // Do NOT store plaintext passwords; credentials are managed by Supabase Auth only.
       }
     } catch (verifyErr: any) {
       console.error("[create-employee] Verification of public.users row failed:", verifyErr)

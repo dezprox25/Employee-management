@@ -5,10 +5,10 @@ import type React from "react"
 import { useMemo, useState, createContext, useContext } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { IconMenu2, IconX } from "@tabler/icons-react"
-import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { LogOut } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler"
 
 interface Links {
   label: string
@@ -148,7 +148,8 @@ export const DesktopSidebar = ({ className, children, ...props }: MotionDivChild
         {children}
         {/* Bottom actions: Theme toggle and Logout */}
         <div className="mt-auto items-center gap-2 px-1 pt-4 border-t border-neutral-200/60 dark:border-neutral-800">
-          <ThemeToggle />
+          {/* <ThemeToggle /> */}
+              <AnimatedThemeToggler />
           <SidebarLink
             link={{
               label: "Logout",
@@ -215,7 +216,8 @@ export const MobileSidebar = ({ className, children, ...props }: React.Component
               </div>
               {children}
               <div className={cn("mt-4 items-center gap-2 pt-4 border-t border-neutral-200/60 dark:border-neutral-800")}> 
-                <ThemeToggle />
+                {/* <ThemeToggle /> */}
+                <AnimatedThemeToggler />
                 <SidebarLink
                   link={{
                     label: "Logout",
