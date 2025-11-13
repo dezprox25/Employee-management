@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Plus, Trash2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { DashboardHeader } from "@/components/DashboardHeader"
 
 interface Employee {
   id: string
@@ -368,6 +369,7 @@ export default function EmployeesPage() {
 
   return (
     <div className="min-h-screen bg-background">
+                 
       <div className="p-6 space-y-6">
         <div className="flex justify-between items-center">
           <h2 className="text-3xl font-bold">Employees</h2>

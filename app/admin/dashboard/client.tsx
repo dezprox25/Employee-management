@@ -20,20 +20,25 @@ import {
   Pie,
   Cell,
 } from "recharts"
-import { Users, Clock, AlertCircle, CheckCircle, RefreshCw } from "lucide-react"
+import { Users, Clock, AlertCircle, CheckCircle, RefreshCw, UserCheck, FileX } from "lucide-react"
 import { CardEntrance } from "@/components/animations/card-entrance"
 import { StatCounter } from "@/components/animations/stat-counter"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { DashboardHeader } from "@/components/DashboardHeader"
 import { Spinner } from "@/components/ui/spinner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+// import {
+//   Select,
+//   SelectContent,
+//   SelectItem,
+//   SelectTrigger,
+//   SelectValue,
+// } from "@/components/ui/select"
+// import { Switch } from "@/components/ui/switch"
+// import { Label } from "@/components/ui/label"
+// import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler"
+// import { Menu, Search, HelpCircle, Bell } from "lucide-react"
+import { MetricCard } from "@/components/ui/MetricCard"
 
 type DashboardStats = {
   totalEmployees: number
@@ -225,14 +230,7 @@ export default function AdminDashboardClient() {
       </div>
     )
   }
-  // if (pane === "reports") {
-  //   return (
-  //     <div className="min-h-screen w-full bg-background">
-  //       <div className="px-6 pt-6 text-sm text-muted-foreground">Admin / Dashboard / Reports</div>
-  //       <AdminReportsView />
-  //     </div>
-  //   )
-  // }
+
 
   if (loading) {
     return (
@@ -253,230 +251,189 @@ export default function AdminDashboardClient() {
   ]
 
   return (
-    <div className="min-h-screen w-full bg-background p-6 md:p-4 ">
-      <div className="flex w-full flex-1 flex-col gap-8  border rounded-xl p-5">
-        {/* Breadcrumb for overview */}
-        <div className="text-sm text-muted-foreground">Admin / Dashboard</div>
-        {/* Top Controls */}
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary">Live updates</Badge>
-            {lastUpdated && (
-              <span className="text-sm text-muted-foreground">Last updated: {lastUpdated.toLocaleTimeString()}</span>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Range</span>
-              <Select value={timeRange} onValueChange={(v) => setTimeRange(v as "weekly" | "monthly")}>
-                <SelectTrigger size="sm" className="min-w-32">
-                  <SelectValue placeholder="Select range" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="weekly">Weekly</SelectItem>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Auto-refresh</span>
-              <Select value={String(refreshInterval)} onValueChange={(v) => setRefreshInterval(Number(v))}>
-                <SelectTrigger size="sm" className="min-w-36">
-                  <SelectValue placeholder="Interval" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">Off</SelectItem>
-                  <SelectItem value="15">15s</SelectItem>
-                  <SelectItem value="30">30s</SelectItem>
-                  <SelectItem value="60">60s</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button size="sm" variant="outline" onClick={() => {
-              setLoading(true)
-              fetch(`/api/admin/dashboard?range=${timeRange}`)
-                .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`API error: ${res.status}`))))
-                .then((data: AdminDashboardResponse) => {
-                  setStats(data.stats)
-                  setAttendanceTrends(data.attendanceTrends)
-                  setLatePatterns(data.latePatterns)
-                  setLeaveBreakdown(data.leaveBreakdown)
-                  setTypeDistribution(data.typeDistribution)
-                  setLastUpdated(new Date())
-                  setError(null)
-                })
-                .catch((err) => setError(err?.message || "Refresh failed"))
-                .finally(() => setLoading(false))
-            }}>
-              <RefreshCw className="size-4" /> Refresh now
-            </Button>
+    <div className="min-h-screen w-full">
+      <div className="flex w-full flex-1 flex-col">
+        {/* Dashboard Header — adapted from temp App */}
+        <div className="border-b border-white/50 dark:border-white/20 bg-white/70 dark:bg-[#3E3E40] backdrop-blur-2xl shadow-[0_1px_3px_rgba(0,0,0,0.05)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)]">
+          <div className="px-6 py-4">
+            <DashboardHeader
+              lastUpdated={lastUpdated}
+              setLastUpdated={setLastUpdated}
+              timeRange={timeRange}
+              setTimeRange={setTimeRange}
+              refreshInterval={refreshInterval}
+              setRefreshInterval={setRefreshInterval}
+              setLoading={setLoading}
+              setStats={setStats}
+              setAttendanceTrends={setAttendanceTrends}
+              setLatePatterns={setLatePatterns}
+              setLeaveBreakdown={setLeaveBreakdown}
+              setTypeDistribution={setTypeDistribution}
+              setError={setError}
+              error={error} // Pass the error state as a prop
+            />
+            {/* Bottom row - controls */}
+          
           </div>
         </div>
-
-        {error && (
-          <Alert variant="destructive">
-            <AlertTitle>Failed to load data</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {/* Summary Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Metrics Grid — adapted to temp App style */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-5">
           <CardEntrance delay={0}>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
-                <Users className="w-4 h-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  <StatCounter from={0} to={stats.totalEmployees} />
-                </div>
-              </CardContent>
-            </Card>
+            <MetricCard
+              title="Total Employees"
+              value={stats.totalEmployees}
+              icon={Users}
+              iconColor="text-blue-600 dark:text-blue-400"
+              iconBgColor="bg-blue-100 dark:bg-blue-950"
+            />
           </CardEntrance>
 
           <CardEntrance delay={0.1}>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Present Today</CardTitle>
-                <CheckCircle className="w-4 h-4 text-green-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  <StatCounter from={0} to={stats.presentToday} />
-                </div>
-              </CardContent>
-            </Card>
+            <MetricCard
+              title="Present Today"
+              value={stats.presentToday}
+              icon={UserCheck}
+              iconColor="text-emerald-600 dark:text-emerald-400"
+              iconBgColor="bg-emerald-100 dark:bg-emerald-950"
+            />
           </CardEntrance>
 
           <CardEntrance delay={0.2}>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Late Arrivals</CardTitle>
-                <Clock className="w-4 h-4 text-yellow-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  <StatCounter from={0} to={stats.lateArrivals} />
-                </div>
-              </CardContent>
-            </Card>
+            <MetricCard
+              title="Late Arrivals"
+              value={stats.lateArrivals}
+              icon={Clock}
+              iconColor="text-amber-600 dark:text-amber-400"
+              iconBgColor="bg-amber-100 dark:bg-amber-950"
+            />
           </CardEntrance>
 
           <CardEntrance delay={0.3}>
+            <MetricCard
+              title="Pending Leaves"
+              value={stats.pendingLeaves}
+              icon={FileX}
+              iconColor="text-purple-600 dark:text-purple-400"
+              iconBgColor="bg-purple-100 dark:bg-purple-950"
+            />
+          </CardEntrance>
+        </div>
+
+        <section className="p-5 space-y-5">
+
+          {/* Attendance Trends */}
+          <CardEntrance delay={0.4}>
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pending Leaves</CardTitle>
-                <AlertCircle className="w-4 h-4 text-red-500" />
+              <CardHeader>
+                <CardTitle>Attendance Trends ({timeRange === "weekly" ? "Last 7 Days" : "Last 30 Days"})</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
-                  <StatCounter from={0} to={stats.pendingLeaves} />
+                <ResponsiveContainer width="100%" height={320}>
+                  <BarChart data={attendanceTrends}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+                      dataKey="date"
+                      tickFormatter={(value) => {
+                        const d = new Date(value)
+                        if (Number.isNaN(d.getTime())) return value
+                        return d.toLocaleDateString("en-US", { month: "numeric", day: "numeric" })
+                      }}
+                    />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="present" stackId="a" fill="var(--chart-1)" name="Present" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="late" stackId="a" fill="var(--chart-2)" name="Late" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="absent" stackId="a" fill="var(--chart-5)" name="Absent" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </CardEntrance>
+
+          {/* Late Arrival Patterns */}
+          <CardEntrance delay={0.5}>
+            <Card>
+              <CardHeader>
+                <CardTitle>Late Arrival Patterns</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={280}>
+                  <LineChart data={latePatterns}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+                      dataKey="date"
+                      tickFormatter={(value) => {
+                        const d = new Date(value)
+                        if (Number.isNaN(d.getTime())) return value
+                        return d.toLocaleDateString("en-US", { month: "numeric", day: "numeric" })
+                      }}
+                    />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="late" stroke="var(--chart-2)" strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 6 }} name="Late" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </CardEntrance>
+
+          {/* Leave Status Breakdown */}
+          <CardEntrance delay={0.6}>
+            <Card>
+              <CardHeader>
+                <CardTitle>Leave Request Status Breakdown</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                  <ResponsiveContainer width="100%" height={280}>
+                    <PieChart>
+                      <Tooltip />
+                      <Legend />
+                      <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100}>
+                        {pieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    {pieData.map((p) => (
+                      <div key={p.name} className="flex items-center gap-2">
+                        <span className="inline-block size-3 rounded-sm" style={{ backgroundColor: p.color }} />
+                        <span className="text-muted-foreground">{p.name}</span>
+                        <span className="ml-auto font-medium">{p.value}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </CardEntrance>
-        </div>
 
-        {/* Attendance Trends */}
-        <CardEntrance delay={0.4}>
-          <Card>
-            <CardHeader>
-              <CardTitle>Attendance Trends ({timeRange === "weekly" ? "Last 7 Days" : "Last 30 Days"})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={320}>
-                <BarChart data={attendanceTrends}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis allowDecimals={false} />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="present" stackId="a" fill="var(--chart-1)" name="Present" />
-                  <Bar dataKey="late" stackId="a" fill="var(--chart-2)" name="Late" />
-                  <Bar dataKey="absent" stackId="a" fill="var(--chart-5)" name="Absent" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </CardEntrance>
-
-        {/* Late Arrival Patterns */}
-        <CardEntrance delay={0.5}>
-          <Card>
-            <CardHeader>
-              <CardTitle>Late Arrival Patterns</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={latePatterns}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis allowDecimals={false} />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="late" stroke="var(--chart-2)" strokeWidth={2} dot={{ r: 3 }} name="Late" />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </CardEntrance>
-
-        {/* Leave Status Breakdown */}
-        <CardEntrance delay={0.6}>
-          <Card>
-            <CardHeader>
-              <CardTitle>Leave Request Status Breakdown</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-                <ResponsiveContainer width="100%" height={280}>
-                  <PieChart>
+          {/* Attendance by Employee Type (proxy for department) */}
+          <CardEntrance delay={0.7}>
+            <Card>
+              <CardHeader>
+                <CardTitle>Attendance by Employee Type (Today)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={typeDistribution}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="type" />
+                    <YAxis allowDecimals={false} />
                     <Tooltip />
                     <Legend />
-                    <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100}>
-                      {pieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                  </PieChart>
+                    <Bar dataKey="present" fill="var(--chart-1)" name="Present" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="absent" fill="var(--chart-5)" name="Absent" radius={[4, 4, 0, 0]} />
+                  </BarChart>
                 </ResponsiveContainer>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  {pieData.map((p) => (
-                    <div key={p.name} className="flex items-center gap-2">
-                      <span className="inline-block size-3 rounded-sm" style={{ backgroundColor: p.color }} />
-                      <span className="text-muted-foreground">{p.name}</span>
-                      <span className="ml-auto font-medium">{p.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </CardEntrance>
-
-        {/* Attendance by Employee Type (proxy for department) */}
-        <CardEntrance delay={0.7}>
-          <Card>
-            <CardHeader>
-              <CardTitle>Attendance by Employee Type (Today)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={typeDistribution}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="type" />
-                  <YAxis allowDecimals={false} />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="present" fill="var(--chart-1)" name="Present" />
-                  <Bar dataKey="absent" fill="var(--chart-5)" name="Absent" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </CardEntrance>
+              </CardContent>
+            </Card>
+          </CardEntrance>
+        </section>
       </div>
     </div>
   )
