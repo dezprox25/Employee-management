@@ -1,7 +1,7 @@
 "use client"
 
 import { createClient } from "@/lib/supabase/client"
-import { formatTime12hCompactFromString } from "@/lib/utils"
+import { formatTime12hCompactFromString, formatLeaveUsage } from "@/lib/utils"
 import { useEffect, useState, useMemo, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog"
-import { Plus, Trash2 } from "lucide-react"
+import { Plus, Trash2, Mail, Search, Eye, EyeOff } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { DashboardHeader } from "@/components/DashboardHeader"
 
@@ -37,6 +37,7 @@ export default function EmployeesPage() {
     type: "fulltime",
     password: "",
   })
+  const [showPassword, setShowPassword] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [page, setPage] = useState<number>(1)
   const [pageSize, setPageSize] = useState<number>(12)
@@ -53,6 +54,17 @@ export default function EmployeesPage() {
   const [isAdmin, setIsAdmin] = useState(false)
 
   const supabase = useMemo(() => createClient(), [])
+
+  // DashboardHeader integration state
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [timeRange, setTimeRange] = useState<"weekly" | "monthly">("weekly")
+  const [refreshInterval, setRefreshInterval] = useState<number>(0)
+  const [error, setError] = useState<string | null>(null)
+  const [dashStats, setDashStats] = useState<any>({})
+  const [attendanceTrends, setAttendanceTrends] = useState<any>([])
+  const [latePatterns, setLatePatterns] = useState<any>([])
+  const [leaveBreakdown, setLeaveBreakdown] = useState<any>({})
+  const [typeDistribution, setTypeDistribution] = useState<any>([])
 
   // Removed view mode toggle and initialization to simplify UI
 
@@ -368,15 +380,36 @@ export default function EmployeesPage() {
   if (loading) return <div>Loading...</div>
 
   return (
-    <div className="min-h-screen bg-background">
-                 
+    <div className="min-h-screen dark:bg-[#1C1C1E] bg-[#F3F3F3] transition-smooth">
+      {/* Top Header */}
+      <div className="border-b border-white/50 dark:border-white/20 bg-white/70 dark:bg-[#3E3E40] backdrop-blur-2xl shadow-[0_1px_3px_rgba(0,0,0,0.05)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)]">
+        <div className="px-6 py-4">
+          <DashboardHeader
+            lastUpdated={lastUpdated}
+            setLastUpdated={setLastUpdated}
+            timeRange={timeRange}
+            setTimeRange={setTimeRange}
+            refreshInterval={refreshInterval}
+            setRefreshInterval={setRefreshInterval}
+            setLoading={setLoading}
+            setStats={setDashStats}
+            setAttendanceTrends={setAttendanceTrends}
+            setLatePatterns={setLatePatterns}
+            setLeaveBreakdown={setLeaveBreakdown}
+            setTypeDistribution={setTypeDistribution}
+            setError={setError}
+            error={error}
+          />
+        </div>
+      </div>
+
       <div className="p-6 space-y-6">
         <div className="flex justify-between items-center">
           <h2 className="text-3xl font-bold">Employees</h2>
           {/* Removed view toggle and page size select to simplify UI */}
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button className="gap-2">
+              <Button className="gap-2 bg-gradient-to-b from-green-500/50 to-green-500 hover:from-green-500 hover:to-green-500/50 rounded-2xl">
                 <Plus className="w-4 h-4" />
                 Add Employee
               </Button>
@@ -386,16 +419,17 @@ export default function EmployeesPage() {
                 <DialogTitle>Add New Employee</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
                   <Input
                     id="name"
                     value={newEmployee.name}
                     onChange={(e) => setNewEmployee({ ...newEmployee, name: e.target.value })}
                     placeholder="John Doe"
+                    className="bg-input text-input-foreground outline-none border-none "
                   />
                 </div>
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
@@ -405,20 +439,36 @@ export default function EmployeesPage() {
                     placeholder="john@example.com"
                   />
                 </div>
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={newEmployee.password}
-                    onChange={(e) => setNewEmployee({ ...newEmployee, password: e.target.value })}
-                    placeholder="Set an initial password"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      value={newEmployee.password}
+                      onChange={(e) => setNewEmployee({ ...newEmployee, password: e.target.value })}
+                      placeholder="Set an initial password"
+                      className="bg-input text-input-foreground outline-none border-none pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="type">Work Type</Label>
                   <Select value={newEmployee.type} onValueChange={(type) => setNewEmployee({ ...newEmployee, type })}>
-                    <SelectTrigger id="type">
+                    <SelectTrigger id="type" className="bg-input text-input-foreground outline-none border-none ">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -428,7 +478,7 @@ export default function EmployeesPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button onClick={handleAddEmployee} className="w-full">
+                <Button onClick={handleAddEmployee} className="w-full bg-green-500">
                   Add Employee
                 </Button>
               </div>
@@ -458,64 +508,74 @@ export default function EmployeesPage() {
           </div> */}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {visibleEmployees.map((employee) => (
-            <Card key={employee.id}>
-              <CardHeader>
-                <CardTitle className="text-lg">{employee.name}</CardTitle>
+            <Card
+              key={employee.id}
+              className="dark:bg-[#333335] bg-[#fff] border-gray-400 border-[#fff] rounded-[30px] shadow-sm"
+            >
+              <CardHeader className="pb-3">
+                <CardTitle className="text-xl font-semibold">{employee.name}</CardTitle>
+                <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+                  <Mail className="w-4 h-4" />
+                  <span>{employee.email}</span>
+                </div>
               </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Email:</span> {employee.email}
+              <hr />
+              <CardContent className="text-sm py-2 my-2">
+                <div className="" />
+                <div className="space-y-3 py-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Type:</span>
+                    <span className="font-medium">
+                      {employee.type === "fulltime"
+                        ? "Full time"
+                        : employee.type === "intern1"
+                          ? "Working"
+                          : "Learning"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Work Hours:</span>
+                    <span className="font-medium">
+                      {formatTime12hCompactFromString(employee.work_time_start)} - {formatTime12hCompactFromString(employee.work_time_end)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Leaves:</span>
+                    <span className="font-medium">{formatLeaveUsage(employee.used_leaves, employee.total_leaves)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Created:</span>
+                    <span className="font-medium">{employee.created_at ? new Date(employee.created_at).toLocaleString() : "-"}</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Type:</span>{" "}
-                  {employee.type === "fulltime"
-                    ? "Full-time"
-                    : employee.type === "intern1"
-                      ? "Intern (Working)"
-                      : "Intern (Learning)"}
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Work Hours:</span> {formatTime12hCompactFromString(employee.work_time_start)} -{" "}
-                  {formatTime12hCompactFromString(employee.work_time_end)}
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Leaves:</span> {employee.used_leaves}/{employee.total_leaves}
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Created:</span> {employee.created_at ? new Date(employee.created_at).toLocaleString() : "-"}
-                </div>
-                <div>
-                  {/* <span className="text-muted-foreground">Password:</span> {employee.password} */}
-                </div>
-                <div className="pt-4">
-                  <div className="grid grid-cols-3 gap-2">
+
+                <div className="mt-5">
+                  <div className="grid grid-cols-3 gap-3">
                     <Button
-                      variant="outline"
                       size="sm"
-                      className="w-full gap-2"
+                      className="w-full rounded-2xl bg-[#1d4ed8] hover:bg-[#1e40af] text-white"
                       onClick={() => openEdit(employee)}
                     >
                       Edit
                     </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="w-full gap-2"
-                    onClick={() => openResetDialog(employee.id)}
-                  >
-                    Reset Password
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="w-full gap-2"
-                    onClick={() => confirmDelete(employee.id)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Delete
-                  </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full rounded-2xl"
+                      onClick={() => openResetDialog(employee.id)}
+                    >
+                      Reset Password
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="w-full rounded-2xl bg-[#dc2626] hover:bg-[#b91c1c] text-white"
+                      onClick={() => confirmDelete(employee.id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -614,5 +674,3 @@ export default function EmployeesPage() {
     </div>
   )
 }
-
-

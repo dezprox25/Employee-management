@@ -548,19 +548,48 @@ export default function EmployeeDashboardClient() {
         "h-screen",
       )}
     >
-      <Sidebar open={open} setOpen={setOpen} >
-        <SidebarBody className="justify-between  gap-10">
-          <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
-            <div className="mt-4 flex flex-col gap-2">
-              {links.map((link, idx) => (
-                <SidebarLink
-                  key={idx}
-                  link={{ label: link.label, href: link.href, icon: link.icon }}
-                  onClick={link.onClick as any}
-                />
-              ))}
-            </div>
-          </div>
+      <Sidebar>
+        <SidebarBody className="w-64 border-r bg-white/70 dark:bg-white/15 backdrop-blur-2xl justify-between">
+          <nav className="p-4 space-y-2">
+            <Button
+              variant={activeTab === "dashboard" ? "secondary" : "ghost"}
+              className="w-full justify-start gap-2"
+              onClick={(e) => {
+                e.preventDefault()
+                router.push("/employee/dashboard?pane=dashboard")
+                setActiveTab("dashboard")
+              }}
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              Dashboard
+            </Button>
+
+            <Button
+              variant={activeTab === "leaves" ? "secondary" : "ghost"}
+              className="w-full justify-start gap-2"
+              onClick={(e) => {
+                e.preventDefault()
+                router.push("/employee/dashboard?pane=leaves")
+                setActiveTab("leaves")
+              }}
+            >
+              <CalendarDays className="w-4 h-4" />
+              Leaves
+            </Button>
+
+            <Button
+              variant={activeTab === "attendance" ? "secondary" : "ghost"}
+              className="w-full justify-start gap-2"
+              onClick={(e) => {
+                e.preventDefault()
+                router.push("/employee/dashboard?pane=attendance")
+                setActiveTab("attendance")
+              }}
+            >
+              <ListChecks className="w-4 h-4" />
+              Attendance
+            </Button>
+          </nav>
         </SidebarBody>
       </Sidebar>
 

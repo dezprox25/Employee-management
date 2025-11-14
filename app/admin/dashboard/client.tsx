@@ -209,7 +209,7 @@ export default function AdminDashboardClient() {
   if (pane === "employees") {
     return (
       <div className="min-h-screen w-full bg-background">
-        <div className="px-6 pt-6 text-sm text-muted-foreground">Admin / Dashboard / Employees</div>
+        {/* <div className="px-6 pt-6 text-sm text-muted-foreground">Admin / Dashboard / Employees</div> */}
         <AdminEmployeesView />
       </div>
     )
@@ -217,7 +217,7 @@ export default function AdminDashboardClient() {
   if (pane === "leaves") {
     return (
       <div className="min-h-screen w-full bg-background">
-        <div className="px-6 pt-6 text-sm text-muted-foreground">Admin / Dashboard / Leaves</div>
+        {/* <div className="px-6 pt-6 text-sm text-muted-foreground">Admin / Dashboard / Leaves</div> */}
         <AdminLeavesView />
       </div>
     )
@@ -225,7 +225,7 @@ export default function AdminDashboardClient() {
   if (pane === "attendance") {
     return (
       <div className="min-h-screen w-full bg-background">
-        <div className="px-6 pt-6 text-sm text-muted-foreground">Admin / Dashboard / Attendance</div>
+        {/* <div className="px-6 pt-6 text-sm text-muted-foreground">Admin / Dashboard / Attendance</div> */}
         <AdminAttendanceView />
       </div>
     )
@@ -251,7 +251,7 @@ export default function AdminDashboardClient() {
   ]
 
   return (
-    <div className="min-h-screen w-full">
+    <div className="min-h-screen w-full dark:bg-[#1C1C1E] bg-[#F3F3F3] transition-smooth">
       <div className="flex w-full flex-1 flex-col">
         {/* Dashboard Header — adapted from temp App */}
         <div className="border-b border-white/50 dark:border-white/20 bg-white/70 dark:bg-[#3E3E40] backdrop-blur-2xl shadow-[0_1px_3px_rgba(0,0,0,0.05)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)]">

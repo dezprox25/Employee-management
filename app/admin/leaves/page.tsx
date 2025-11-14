@@ -10,10 +10,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { inclusiveDaysBetween } from "@/lib/date"
+import { DashboardHeader } from "@/components/DashboardHeader"
 
 type LeaveRow = {
   id: string
   user_id: string
+  user_name: string | null
   from_date: string
   to_date: string
   category: "sick" | "vacation" | "personal" | "other"
@@ -49,6 +51,15 @@ export default function AdminLeavesPage() {
   const [sortLeavesBy, setSortLeavesBy] = useState<string>("applied_desc")
   const [sortSummaryBy, setSortSummaryBy] = useState<string>("days_desc")
   const [preferRpc, setPreferRpc] = useState<boolean>(false)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [timeRange, setTimeRange] = useState<"weekly" | "monthly">("weekly")
+  const [refreshInterval, setRefreshInterval] = useState<number>(0)
+  const [error, setError] = useState<string | null>(null)
+  const [dashStats, setDashStats] = useState<any>({})
+  const [attendanceTrends, setAttendanceTrends] = useState<any>([])
+  const [latePatterns, setLatePatterns] = useState<any>([])
+  const [leaveBreakdown, setLeaveBreakdown] = useState<any>({})
+  const [typeDistribution, setTypeDistribution] = useState<any>([])
 
   
 
@@ -70,12 +81,13 @@ export default function AdminLeavesPage() {
     requestCount: number
     earliestFrom: string | null
     latestTo: string | null
+    maxDays: number
   }
 
   const summaryRows: EmployeeSummary[] = useMemo(() => {
     const map = new Map<string, EmployeeSummary>()
-    const byId = new Map<string, { name: string | null; email: string | null }>()
-    balances.forEach((b) => byId.set(b.id, { name: b.name ?? null, email: b.email ?? null }))
+    const byId = new Map<string, { name: string | null; email: string | null; total_leaves: number; used_leaves: number }>()
+    balances.forEach((b) => byId.set(b.id, { name: b.name ?? null, email: b.email ?? null, total_leaves: b.total_leaves ?? 0, used_leaves: b.used_leaves ?? 0 }))
 
     for (const l of leaves) {
       // Include all requests (pending, approved, rejected, cancelled)
@@ -91,6 +103,7 @@ export default function AdminLeavesPage() {
           requestCount: 1,
           earliestFrom: l.from_date,
           latestTo: l.to_date,
+          maxDays: identity?.total_leaves ?? 0,
         })
       } else {
         existing.totalDays += days
@@ -307,22 +320,32 @@ export default function AdminLeavesPage() {
   if (!isAdmin) return null
 
   return (
-    <div className="min-h-screen bg-background transition-smooth">
-      {/* Header Section */}
+    <div className="min-h-screen dark:bg-[#1C1C1E] bg-[#F3F3F3] transition-smooth">
       <div className="border-b border-border/40 bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className=" mx-auto px-6 py-6">
-          <div className="flex items-center gap-3 mb-2">
-            <Calendar className="w-8 h-8 text-primary" />
-            <h1 className="text-3xl font-semibold text-foreground">Leave Management</h1>
-          </div>
-          <p className="text-muted-foreground">Monitor and manage employee leave requests</p>
+        <div className="px-6 py-4 bg-white/70 dark:bg-[#3E3E40] backdrop-blur-2xl shadow-[0_1px_3px_rgba(0,0,0,0.05)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)]">
+          <DashboardHeader
+            lastUpdated={lastUpdated}
+            setLastUpdated={setLastUpdated}
+            timeRange={timeRange}
+            setTimeRange={setTimeRange}
+            refreshInterval={refreshInterval}
+            setRefreshInterval={setRefreshInterval}
+            setLoading={setLoading}
+            setStats={setDashStats}
+            setAttendanceTrends={setAttendanceTrends}
+            setLatePatterns={setLatePatterns}
+            setLeaveBreakdown={setLeaveBreakdown}
+            setTypeDistribution={setTypeDistribution}
+            setError={setError}
+            error={error}
+          />
         </div>
       </div>
 
       <div className="mx-auto px-10 py-8 ">
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 fade-in">
-          <Card className="hover-lift bg-gradient-to-br from-primary/5 to-transparent border-primary/20">
+          <Card className="hover-lift dark:bg-[#333335] bg-[#F3F3F3] border-gray-400 border-[#fff] rounded-[30px]">
             <CardContent className="pt-6">
               <div className="flex items-start justify-between">
                 <div>
@@ -334,7 +357,7 @@ export default function AdminLeavesPage() {
             </CardContent>
           </Card>
 
-          <Card className="hover-lift bg-gradient-to-br from-accent/5 to-transparent border-accent/20">
+          <Card className="hover-lift dark:bg-[#333335] bg-[#F3F3F3] border-gray-400 border-[#fff] rounded-[30px]">
             <CardContent className="pt-6">
               <div className="flex items-start justify-between">
                 <div>
@@ -343,12 +366,12 @@ export default function AdminLeavesPage() {
                     {leaves.filter((l) => l.status === "pending").length}
                   </p>
                 </div>
-                <AlertCircle className="w-10 h-10 text-accent/40" />
+                <AlertCircle className="w-10 h-10 text-[#FF9900]" />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="hover-lift bg-gradient-to-br from-secondary/5 to-transparent border-secondary/20">
+          <Card className="hover-lift dark:bg-[#333335] bg-[#F3F3F3] border-gray-400 border-[#fff] rounded-[30px]">
             <CardContent className="pt-6">
               <div className="flex items-start justify-between">
                 <div>
@@ -357,7 +380,7 @@ export default function AdminLeavesPage() {
                     {leaves.filter((l) => l.status === "approved").length}
                   </p>
                 </div>
-                <TrendingUp className="w-10 h-10 text-secondary/40" />
+                <TrendingUp className="w-10 h-10 text-[#009933]" />
               </div>
             </CardContent>
           </Card>
@@ -411,7 +434,7 @@ export default function AdminLeavesPage() {
                         summaryRows.map((row) => (
                           <TableRow key={row.id} className="hover:bg-muted/50 transition-smooth border-border/30">
                             <TableCell className="font-medium">{row.name ?? row.id}</TableCell>
-                            <TableCell className="font-semibold text-primary">{row.totalDays}</TableCell>
+                            <TableCell className="font-semibold text-primary">{row.totalDays}/{row.maxDays}</TableCell>
                             <TableCell className="text-muted-foreground">
                               {row.earliestFrom && row.latestTo
                                 ? `${new Date(row.earliestFrom).toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${new Date(row.latestTo).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
@@ -560,7 +583,7 @@ export default function AdminLeavesPage() {
                             key={l.id}
                             className={`hover:bg-muted/50 transition-smooth border-border/30 ${l.status === "pending" ? "bg-accent/5" : ""}`}
                           >
-                            <TableCell className="font-medium text-sm">{l.user_id}</TableCell>
+                            <TableCell className="font-medium text-sm">{l.user_name ?? (balances.find((b) => b.id === l.user_id)?.name ?? l.user_id)}</TableCell>
                             <TableCell className="text-sm">
                               <span className="text-muted-foreground">
                                 {new Date(l.from_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}{" "}
@@ -696,7 +719,7 @@ export default function AdminLeavesPage() {
             </div>
           </div>
         </DialogContent>
-      </Dialog>
+  </Dialog>
     </div>
   )
 }

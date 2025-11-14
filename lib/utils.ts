@@ -72,3 +72,19 @@ export function formatTime12hFromDate(date: Date, opts?: { omitZeroMinutes?: boo
   }
   return `${hour12}:${mm} ${suffix}`
 }
+
+export function formatLeaveUsage(used: unknown, total: unknown): string {
+  const toNum = (v: unknown) => {
+    if (v === null || v === undefined) return NaN
+    if (typeof v === 'string' && v.trim() === '') return NaN
+    const n = typeof v === 'number' ? v : Number(v)
+    return Number.isFinite(n) ? n : NaN
+  }
+  const u = toNum(used)
+  const t = toNum(total)
+  if (!Number.isFinite(u) || !Number.isFinite(t)) return '-'
+  const ui = Math.max(0, Math.floor(u))
+  const ti = Math.max(0, Math.floor(t))
+  const uc = Math.min(ui, ti)
+  return `${uc}/${ti}`
+}

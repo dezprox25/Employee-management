@@ -11,8 +11,10 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
+import { useTheme } from "next-themes"
 import { Loader2, Search, Download, TrendingUp, Users, Clock, AlertCircle } from "lucide-react"
-
+import { DashboardHeader } from "@/components/DashboardHeader"
+import { motion } from "framer-motion"
 type AttendanceRow = {
   id: number
   user_id: string
@@ -43,6 +45,8 @@ export default function AttendanceReportsPage() {
   const router = useRouter()
   const { toast } = useToast()
   const supabase = useMemo(() => createClient(), [])
+  const { resolvedTheme } = useTheme()
+  const isDark = resolvedTheme === "dark"
 
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -76,6 +80,16 @@ export default function AttendanceReportsPage() {
   })
   const refreshThrottleRef = useRef<number>(0)
 
+  const [headerLastUpdated, setHeaderLastUpdated] = useState<Date | null>(null)
+  const [headerTimeRange, setHeaderTimeRange] = useState<"weekly" | "monthly">("weekly")
+  const [headerRefreshInterval, setHeaderRefreshInterval] = useState<number>(0)
+  const [headerError, setHeaderError] = useState<string | null>(null)
+  const [headerStats, setHeaderStats] = useState<any>({})
+  const [headerAttendanceTrends, setHeaderAttendanceTrends] = useState<any>([])
+  const [headerLatePatterns, setHeaderLatePatterns] = useState<any>([])
+  const [headerLeaveBreakdown, setHeaderLeaveBreakdown] = useState<any>({})
+  const [headerTypeDistribution, setHeaderTypeDistribution] = useState<any>([])
+
   const todayStats = todayCounts
 
   const chartData = [
@@ -96,8 +110,8 @@ export default function AttendanceReportsPage() {
     subtitle?: string
   }) {
     return (
-      <div className="group relative overflow-hidden rounded-2xl bg-card border border-border p-6 transition-all duration-300 ease-out hover:shadow-lg hover:scale-105">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-smooth" />
+      <div className="group relative overflow-hidden dark:bg-[#333335] bg-[#F3F3F3] dark:border-none rounded-3xl bg-card shadow-sm border-4 border-[#fff] p-6 transition-all duration-300 ease-out hover:scale-105">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0  transition-smooth" />
         <div className="relative space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-muted-foreground">{title}</p>
@@ -233,12 +247,12 @@ export default function AttendanceReportsPage() {
       if (fromDate) {
         try {
           if (new Date(r.date) < new Date(fromDate)) return false
-        } catch (_) {}
+        } catch (_) { }
       }
       if (toDate) {
         try {
           if (new Date(r.date) > new Date(toDate)) return false
-        } catch (_) {}
+        } catch (_) { }
       }
       return true
     })
@@ -280,7 +294,27 @@ export default function AttendanceReportsPage() {
   if (!isAdmin) return null
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-background">
+    <div className="min-h-screen dark:bg-[#1C1C1E] bg-[#E8E8ED]">
+      <div className="border-b border-white/50 dark:border-white/20 bg-white/70 dark:bg-[#3E3E40] backdrop-blur-2xl shadow-[0_1px_3px_rgba(0,0,0,0.05)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)] sticky top-0 z-50">
+        <div className="px-6 py-4">
+          <DashboardHeader
+            lastUpdated={headerLastUpdated}
+            setLastUpdated={setHeaderLastUpdated}
+            timeRange={headerTimeRange}
+            setTimeRange={setHeaderTimeRange}
+            refreshInterval={headerRefreshInterval}
+            setRefreshInterval={setHeaderRefreshInterval}
+            setLoading={setLoading}
+            setStats={setHeaderStats}
+            setAttendanceTrends={setHeaderAttendanceTrends}
+            setLatePatterns={setHeaderLatePatterns}
+            setLeaveBreakdown={setHeaderLeaveBreakdown}
+            setTypeDistribution={setHeaderTypeDistribution}
+            setError={setHeaderError}
+            error={headerError}
+          />
+        </div>
+      </div>
       <div className="p-6 md:p-8 lg:p-10 space-y-8  mx-auto">
         {/* Header Section */}
         <div className="space-y-2 fade-in">
@@ -291,26 +325,49 @@ export default function AttendanceReportsPage() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex gap-2 border-b border-border">
-          <button
+        <motion.div
+          layout
+          className="flex gap-2 border dark:border-white/50 border-white p-2 w-52 shadow-md bg-[#F0F0F3] dark:bg-[#1C1C1E] rounded-full"
+        >
+          <motion.button
+            layout
             onClick={() => setActiveTab("overview")}
-            className={`px-4 py-3 font-medium transition-smooth relative ${
-              activeTab === "overview" ? "text-primary" : "text-muted-foreground hover:text-foreground"
-            }`}
+            className={`px-3 py-1 font-medium relative ${activeTab === "overview" ? "text-primary bg-[#fff] shadow-sm  dark:bg-[#484849] rounded-lg" : "text-muted-foreground hover:text-foreground"
+              }`}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
           >
             Overview
-            {activeTab === "overview" && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
-          </button>
-          <button
+            {activeTab === "overview" && (
+              <motion.div
+                layoutId="active-pill"
+                className="absolute inset-0 bg-white dark:bg-[#484849] rounded-lg -z-10"
+                initial={false}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              />
+            )}
+          </motion.button>
+          <motion.button
+            layout
             onClick={() => setActiveTab("reports")}
-            className={`px-4 py-3 font-medium transition-smooth relative ${
-              activeTab === "reports" ? "text-primary" : "text-muted-foreground hover:text-foreground"
-            }`}
+            className={`px-4 py-1 font-medium relative ${activeTab === "reports" ? "text-primary bg-[#fff] shadow-lg dark:bg-[#484849] rounded-lg" : "text-muted-foreground hover:text-foreground"
+              }`}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
           >
             Reports
-            {activeTab === "reports" && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
-          </button>
-        </div>
+            {activeTab === "reports" && (
+              <motion.div
+                layoutId="active-pill"
+                className="absolute inset-0 bg-white dark:bg-[#484849] rounded-lg -z-10"
+                initial={false}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              />
+            )}
+          </motion.button>
+        </motion.div>
 
         {/* Loading State */}
         {loading ? (
@@ -358,7 +415,7 @@ export default function AttendanceReportsPage() {
                                 borderRadius: "0.5rem",
                               }}
                             />
-                            <Bar dataKey="value" radius={[8, 8, 0, 0]} />
+                            <Bar dataKey="value" radius={[8, 8, 0, 0]} fill={isDark ? "#ffffff" : "hsl(var(--primary))"} />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
@@ -379,6 +436,7 @@ export default function AttendanceReportsPage() {
                           <TableRow className="border-border hover:bg-transparent">
                             <TableHead>Employee</TableHead>
                             <TableHead>Login Time</TableHead>
+                            <TableHead>Logout Time</TableHead>
                             <TableHead>Status</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -394,15 +452,15 @@ export default function AttendanceReportsPage() {
                               <TableRow key={r.id} className="border-border hover:bg-muted/50 transition-smooth">
                                 <TableCell className="font-medium">{r.name}</TableCell>
                                 <TableCell>{fmtTime(r.login_time)}</TableCell>
+                                <TableCell>{fmtTime(r.logout_time)}</TableCell>
                                 <TableCell>
                                   <span
-                                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-smooth ${
-                                      r.status === "present"
-                                        ? "bg-accent/20 text-accent"
-                                        : r.status === "late"
-                                          ? "bg-chart-3/20 text-chart-3"
-                                          : "bg-destructive/20 text-destructive"
-                                    }`}
+                                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-smooth ${r.status === "present"
+                                      ? "bg-green-500/20 text-green-500"
+                                      : r.status === "late"
+                                        ? "bg-chart-3/20 text-chart-3"
+                                        : "bg-destructive/20 text-destructive"
+                                      }`}
                                   >
                                     {r.status}
                                   </span>
@@ -456,27 +514,15 @@ export default function AttendanceReportsPage() {
                           <label className="text-xs text-muted-foreground">To date</label>
                           <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
                         </div>
-                        <div className="flex flex-col gap-1">
-                          <label className="text-xs text-muted-foreground">Department</label>
-                          <select
-                            value={filterDept}
-                            onChange={(e) => setFilterDept(e.target.value)}
-                            className="h-10 rounded-md border border-border bg-background px-3 text-sm"
-                          >
-                            <option value="all">All</option>
-                            {deptOptions.map((d) => (
-                              <option key={d} value={d}>
-                                {d}
-                              </option>
-                            ))}
-                          </select>
+                        <div className="flex items-end">
+                          <Button variant="outline" onClick={() => { setFromDate(""); setToDate("") }}>Clear</Button> 
                         </div>
                         <div className="flex items-end justify-end md:justify-start">
                           <div className="text-xs text-muted-foreground">Last update: {lastUpdated ? new Date(lastUpdated).toLocaleString() : "-"}</div>
                         </div>
                       </div>
                     </div>
-                
+
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
@@ -507,13 +553,12 @@ export default function AttendanceReportsPage() {
                                 <TableCell>{r.total_hours?.toFixed(2) ?? "-"}</TableCell>
                                 <TableCell>
                                   <span
-                                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                      r.status === "present"
-                                        ? "bg-accent/20 text-accent"
-                                        : r.status === "late"
-                                          ? "bg-chart-3/20 text-chart-3"
-                                          : "bg-destructive/20 text-destructive"
-                                    }`}
+                                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${r.status === "present"
+                                      ? "bg-accent/20 text-accent"
+                                      : r.status === "late"
+                                        ? "bg-chart-3/20 text-chart-3"
+                                        : "bg-destructive/20 text-destructive"
+                                      }`}
                                   >
                                     {r.status ?? "-"}
                                   </span>
