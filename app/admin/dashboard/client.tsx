@@ -254,7 +254,7 @@ export default function AdminDashboardClient() {
     <div className="min-h-screen w-full dark:bg-[#1C1C1E] bg-[#F3F3F3] transition-smooth">
       <div className="flex w-full flex-1 flex-col">
         {/* Dashboard Header — adapted from temp App */}
-        <div className="border-b border-white/50 dark:border-white/20 bg-white/70 dark:bg-[#3E3E40] backdrop-blur-2xl shadow-[0_1px_3px_rgba(0,0,0,0.05)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)]">
+        <div className="border-b border-white/50 sticky top-0 z-10 dark:border-white/20 bg-white/70 dark:bg-[#3E3E40] backdrop-blur-2xl shadow-[0_1px_3px_rgba(0,0,0,0.05)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)]">
           <div className="px-6 py-4">
             <DashboardHeader
               lastUpdated={lastUpdated}

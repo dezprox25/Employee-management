@@ -41,7 +41,7 @@ function AdminSidebar({ onNavigate, currentPage, handleLogout }: AdminSidebarPro
                 key={item.label}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-[20px] transition-all group ${
                   currentPage === item.page
-                    ? "bg-white/70 dark:bg-white/15 text-indigo-600 dark:text-indigo-400 shadow-[0_2px_8px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.9)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.2)] border border-white/60 dark:border-white/20"
+                    ? "bg-white/70 dark:bg-white/15 text-green-600 dark:text-indigo-400 shadow-[0_2px_8px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.9)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.2)] border border-white/60 dark:border-white/20"
                     : "text-foreground hover:bg-white/40 dark:hover:bg-white/10 border border-transparent"
                 }`}
                 onClick={() => onNavigate(item.page)}
