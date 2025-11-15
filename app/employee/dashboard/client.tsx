@@ -6,9 +6,9 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Clock, AlertCircle, LayoutDashboard, CalendarDays, ListChecks, Loader2 } from "lucide-react"
+import { Clock, AlertCircle, LayoutDashboard, CalendarDays, ClipboardList, Loader2, LogOut, Menu, X, ChevronRight } from "lucide-react"
 import { CardEntrance } from "@/components/animations/card-entrance"
-import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar"
+
 import { cn, formatTime12hCompactFromString, formatTime12hFromDate } from "@/lib/utils"
 import LeavemManagement from '@/app/employee/leaves/page'
 import AttendanceNanagement from '@/app/employee/attendance/page'
@@ -20,6 +20,8 @@ import EmployeeSVG from "/employee-working.svg"
 import { WorkDurationCard } from "@/components/employee/WorkDurationCard"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
+// import { DashboardHeader } from "@/components/employee/DashboardHeader"
+import { DashboardHeader } from "@/components/employee/DashboardHeader"
 
 interface UserData {
   name: string
@@ -108,7 +110,7 @@ export default function EmployeeDashboardClient() {
       {
         label: "My Attendance Records",
         href: "/employee/dashboard?pane=attendance",
-        icon: <ListChecks className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />,
+        icon: <ClipboardList className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />,
         onClick: (e: React.MouseEvent) => {
           e.preventDefault()
           router.push("/employee/dashboard?pane=attendance")
@@ -462,7 +464,7 @@ export default function EmployeeDashboardClient() {
       try {
         const loginDate = new Date(activeSession.checkIn)
         totalHours = (now.getTime() - loginDate.getTime()) / (1000 * 60 * 60)
-      } catch {}
+      } catch { }
 
       await supabase
         .from("attendance")
@@ -539,7 +541,90 @@ export default function EmployeeDashboardClient() {
 
   const leavesRemaining = userData ? userData.total_leaves - userData.used_leaves : 0
 
-  // links declared above
+  const handleLogout = async () => {
+    const supabase = createClient()
+    try {
+      await supabase.auth.signOut()
+    } catch { }
+    router.replace("/auth/login")
+  }
+
+  const onMenuClick = () => setOpen(true)
+
+  interface SidebarProps {
+    isOpen: boolean
+    onClose: () => void
+    onNavigate: (page: string) => void
+    currentPage: string
+    onLogout: () => void
+    isEmployee?: boolean
+  }
+
+  function SidebarPanel({ isOpen, onClose, onNavigate, currentPage, onLogout, isEmployee = false }: SidebarProps) {
+    const adminMenuItems = [
+      { icon: LayoutDashboard, label: "Dashboard", page: "dashboard" },
+      { icon: CalendarDays, label: "Leaves", page: "leaves" },
+      { icon: ClipboardList, label: "Attendance", page: "attendance" },
+    ]
+    const employeeMenuItems = [
+      { icon: LayoutDashboard, label: "Dashboard", page: "dashboard" },
+      { icon: CalendarDays, label: "Leave Management", page: "leaves" },
+      { icon: ClipboardList, label: "Attendance", page: "attendance" },
+    ]
+    const menuItems = isEmployee ? employeeMenuItems : adminMenuItems
+    return (
+      <>
+        {isOpen && (
+          <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={onClose} />
+        )}
+        <aside
+          className={`fixed left-0 top-0 h-full bg-white/70 dark:bg-white/15 backdrop-blur-2xl border-r border-white/60 dark:border-white/20 z-50 transition-transform duration-300 lg:translate-x-0 ${isOpen ? "translate-x-0" : "-translate-x-full"
+            } w-64 flex flex-col shadow-[0_2px_8px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.5)]`}
+        >
+          <div className="flex items-center justify-between p-6 border-b border-white/50 dark:border-white/20">
+            <div className="flex items-center relative">
+              <img src="/dezprox horizontal black logo.png" alt="Deeprox Logo" className="h-8 w-auto dark:hidden" />
+              <img src="/dezprox horizontal white logo.png" alt="Deeprox Logo" className="h-8 w-auto hidden dark:block" />
+            </div>
+            <Button variant="ghost" size="icon" className="lg:hidden" onClick={onClose}>
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
+          <nav className="flex-1 overflow-y-auto p-4">
+            <div className="space-y-1">
+              {menuItems.map((item) => {
+                const Icon = item.icon as any
+                return (
+                  <button
+                    key={item.label}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-[20px] transition-all group ${currentPage === item.page
+                        ? "bg-white/70 dark:bg-white/15 text-indigo-600 dark:text-indigo-400 shadow-[0_2px_8px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.9)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.2)] border border-white/60 dark:border-white/20"
+                        : "text-foreground hover:bg-white/40 dark:hover:bg-white/10 border border-transparent"
+                      }`}
+                    onClick={() => onNavigate(item.page)}
+                  >
+                    <Icon className={`h-5 w-5 transition-transform group-hover:scale-110 ${currentPage === item.page ? "" : "group-hover:rotate-12"}`} />
+                    <span>{item.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </nav>
+          <div className="border-t border-white/30 dark:border-white/10">
+            <div className="p-4">
+              <button
+                onClick={onLogout}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-600 dark:text-red-400 hover:bg-white/30 dark:hover:bg-red-950/30 backdrop-blur-sm transition-all group"
+              >
+                <LogOut className="h-5 w-5 transition-transform group-hover:-translate-x-1 group-hover:scale-110" />
+                <span className="transition-transform group-hover:translate-x-1">Logout</span>
+              </button>
+            </div>
+          </div>
+        </aside>
+      </>
+    )
+  }
 
   return (
     <div
@@ -548,50 +633,25 @@ export default function EmployeeDashboardClient() {
         "h-screen",
       )}
     >
-      <Sidebar>
-        <SidebarBody className="w-64 border-r bg-white/70 dark:bg-white/15 backdrop-blur-2xl justify-between">
-          <nav className="p-4 space-y-2">
-            <Button
-              variant={activeTab === "dashboard" ? "secondary" : "ghost"}
-              className="w-full justify-start gap-2"
-              onClick={(e) => {
-                e.preventDefault()
-                router.push("/employee/dashboard?pane=dashboard")
-                setActiveTab("dashboard")
-              }}
-            >
-              <LayoutDashboard className="w-4 h-4" />
-              Dashboard
-            </Button>
-
-            <Button
-              variant={activeTab === "leaves" ? "secondary" : "ghost"}
-              className="w-full justify-start gap-2"
-              onClick={(e) => {
-                e.preventDefault()
-                router.push("/employee/dashboard?pane=leaves")
-                setActiveTab("leaves")
-              }}
-            >
-              <CalendarDays className="w-4 h-4" />
-              Leaves
-            </Button>
-
-            <Button
-              variant={activeTab === "attendance" ? "secondary" : "ghost"}
-              className="w-full justify-start gap-2"
-              onClick={(e) => {
-                e.preventDefault()
-                router.push("/employee/dashboard?pane=attendance")
-                setActiveTab("attendance")
-              }}
-            >
-              <ListChecks className="w-4 h-4" />
-              Attendance
-            </Button>
-          </nav>
-        </SidebarBody>
-      </Sidebar>
+      <SidebarPanel
+        isOpen={open}
+        onClose={() => setOpen(false)}
+        onNavigate={(page) => {
+          if (page === "dashboard") {
+            router.push("/employee/dashboard?pane=dashboard")
+            setActiveTab("dashboard")
+          } else if (page === "leaves") {
+            router.push("/employee/dashboard?pane=leaves")
+            setActiveTab("leaves")
+          } else if (page === "attendance") {
+            router.push("/employee/dashboard?pane=attendance")
+            setActiveTab("attendance")
+          }
+        }}
+        currentPage={activeTab}
+        onLogout={handleLogout}
+        isEmployee={true}
+      />
 
       {/* Late reason dialog for late punch-in */}
       <Dialog open={lateDialogOpen} onOpenChange={setLateDialogOpen}>
@@ -670,172 +730,80 @@ export default function EmployeeDashboardClient() {
       </Dialog>
 
       {/* Content area */}
-      <div className="flex flex-1 p-4 md:p-8 overflow-y-auto ">
-        <div className="flex h-full w-full flex-1 flex-col gap-6 rounded-tl-2xl bg-transparent  ">
+      <div className="flex flex-1 flex-col overflow-y-auto lg:ml-64">
+        <DashboardHeader onMenuClick={onMenuClick}  isEmployee={true} />
+        <div className="flex h-full w-full flex-1 flex-col gap-6 rounded-tl-2xl bg-transparent ">
           {/* Breadcrumb */}
-          <div className="text-sm text-muted-foreground">
-            Employee / Dashboard{activeTab !== "dashboard" ? ` / ${activeTab === "leaves" ? "Leaves" : "Attendance"}` : ""}
-          </div>
+         
           {activeTab === "dashboard" && (
             <>
-              <CardEntrance delay={0}>
-                <Card className="bg-black text-white min-h-[300px] text-center place-content-center  ">
-                  <CardHeader>
-                    <CardTitle className="text-4xl  font-bold tracking-wider text-green-600 ">Welcome back {userData?.name}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-2xl font-bold  ">
-                      {userData?.type === "fulltime"
-                        ? "Full-time Employee"
-                        : userData?.type === "intern1"
-                          ? "Working Intern"
-                          : "Learning Intern"}
+              <Card className="bg-black border-0 rounded-[24px] p-8 overflow-hidden shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <h2 className="text-3xl text-[#3FA740] mb-3 text-center">Welcome back {userData?.name ?? "Employee"}</h2>
+                    <p className="text-white text-center mb-1">
+                      {userData?.type === "fulltime" ? "Full-time Employee" : userData?.type === "intern1" ? "Working Intern" : "Learning Intern"}
                     </p>
-                    <p className="text-2xl font-bold mt-2">
-                      Working Hours: {formatTime12hCompactFromString(userData?.work_time_start)} - {formatTime12hCompactFromString(userData?.work_time_end)}
-                    </p>
-                  </CardContent>
-                  <img src="/employee-working.png" alt="" className="w-96 lg:absolute top-0 right-10" />
-                </Card>
-              </CardEntrance>
+                    <p className="text-white/70 text-center">Working Hours: {formatTime12hCompactFromString(userData?.work_time_start)} - {formatTime12hCompactFromString(userData?.work_time_end)}</p>
+                  </div>
+                  <img src="/employee-working.png" alt="Employee" className="h-40 w-auto" />
+                </div>
+              </Card>
 
-              <CardEntrance delay={0.1}>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Clock className="w-5 h-5" />
-                      Today's Attendance
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="text-center">
-                      <div className="text-4xl font-bold font-mono">{formatTime12hFromDate(currentTime)}</div>
-                      <div className="text-sm text-muted-foreground mt-2">{currentTime.toLocaleDateString()}</div>
+              <Card className="backdrop-blur-[40px] bg-white/80 dark:bg-black/60 border border-white/20 dark:border-white/10 rounded-[32px] p-8 shadow-2xl">
+                <div className="flex items-center gap-2 text-muted-foreground mb-6">
+                  <Clock className="h-5 w-5" />
+                  <span className="text-sm">Today's Attendance</span>
+                </div>
+                <div className="text-center mb-8">
+                  <div className="text-6xl text-foreground mb-2">{formatTime12hFromDate(currentTime)}</div>
+                  <div className="text-sm text-muted-foreground">{currentTime.toLocaleDateString()}</div>
+                </div>
+                {!activeSession ? (
+                  <div className="space-y-4">
+                    <SlideToCheckIn onComplete={handleCheckIn} />
+                    <p className="text-center text-xs text-muted-foreground">Drag the button to start work</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 bg-green-500 rounded-full" />
+                        <span className="text-sm">Active Session</span>
+                      </div>
                     </div>
+                    <WorkDurationCard duration={workDuration} checkInTime={formatRecordTime(activeSession.checkIn)} />
+                    <div className="space-y-4">
+                      <SlideToCheckOut onComplete={handleCheckOut} />
+                      <p className="text-center text-xs text-muted-foreground">Drag the button to end your work day</p>
+                    </div>
+                  </div>
+                )}
+              </Card>
 
-                    {todayAttendance && (
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span>Status:</span>
-                          <Badge
-                            variant={
-                              todayAttendance.status === "present"
-                                ? "default"
-                                : todayAttendance.status === "late"
-                                  ? "secondary"
-                                  : "destructive"
-                            }
-                          >
-                            {todayAttendance.status}
-                          </Badge>
-                        </div>
-                        {todayAttendance.login_time && (
-                          <div className="flex justify-between">
-                            <span>Punch In:</span>
-                            <span>{new Date(todayAttendance.login_time).toLocaleTimeString()}</span>
-                          </div>
-                        )}
-                        {todayAttendance.logout_time && (
-                          <div className="flex justify-between">
-                            <span>Punch Out:</span>
-                            <span>{new Date(todayAttendance.logout_time).toLocaleTimeString()}</span>
-                          </div>
-                        )}
-                        {todayAttendance.total_hours && (
-                          <div className="flex justify-between font-semibold">
-                            <span>Total Hours:</span>
-                            <span>{todayAttendance.total_hours.toFixed(2)} hrs</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* <Punch
-                      className="w-full"
-                      isPunchedIn={isPunchedIn}
-                      userData={{ work_time_start: userData?.work_time_start }}
-                      commonLateReasons={commonLateReasons}
-                      onPunchedIn={({ status, login_time }) => {
-                        setIsPunchedIn(true)
-                        toast({
-                          title: status === "late" ? "Punched in (late)" : "Punched in",
-                          description: new Date(login_time).toLocaleTimeString(),
-                        })
-                        fetchUserData()
-                      }}
-                      onPunchedOut={({ total_hours, logout_time }) => {
-                        setIsPunchedIn(false)
-                        toast({
-                          title: "Punched out",
-                          description: `Worked ${total_hours.toFixed(2)} hrs`,
-                        })
-                        fetchUserData()
-                      }}
-                      onError={(message) =>
-                        toast({ title: "Punch failed", description: message, variant: "destructive" })
-                      }
-                    /> */}
-                    <AnimatePresence mode="wait">
-                      {activeSession ? (
-                        <WorkDurationCard
-                          duration={workDuration}
-                          checkInTime={formatRecordTime(activeSession.checkIn)}
-                        />
-                      ) : null}
-                    </AnimatePresence>
-                    
-                    <motion.div
-                      className="space-y-4"
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.3 }}
-                    >
-                      {!activeSession ? (
-                        <SlideToCheckIn onComplete={handleCheckIn} />
-                      ) : (
-                        <SlideToCheckOut onComplete={handleCheckOut} />
-                      )}
-                    </motion.div>
-                  </CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card className="p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-sm">Leave Balance</h3>
+                    <span className="text-xs text-muted-foreground">Info</span>
+                  </div>
+                  <div>
+                    <div className="mb-3">
+                      <div className="text-5xl mb-1">{(userData?.total_leaves ?? 0) - (userData?.used_leaves ?? 0)}</div>
+                      <div className="text-sm text-muted-foreground">{userData?.used_leaves ?? 0}/{userData?.total_leaves ?? 0} used</div>
+                    </div>
+                    <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                      <div className="h-full bg-primary" style={{ width: `${((userData?.used_leaves || 0) / Math.max(1, userData?.total_leaves || 1)) * 100}%` }} />
+                    </div>
+                  </div>
                 </Card>
-              </CardEntrance>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <CardEntrance delay={0.2}>
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Leave Balance</CardTitle>
-                      <AlertCircle className="w-4 h-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{leavesRemaining}</div>
-                      <p className="text-xs text-muted-foreground">
-                        {userData?.used_leaves}/{userData?.total_leaves} used
-                      </p>
-                      <div className="mt-3 h-2 bg-secondary rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-primary"
-                          style={{
-                            width: `${((userData?.used_leaves || 0) / (userData?.total_leaves || 1)) * 100}%`,
-                          }}
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </CardEntrance>
-
-                <CardEntrance delay={0.3}>
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Quick Actions</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <Button className="w-full bg-transparent" variant="outline">
-                        Apply for Leave
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </CardEntrance>
+                <Card className="p-6">
+                  <h3 className="mb-6 text-sm">Quick Actions</h3>
+                  <Button onClick={() => setActiveTab("leaves")} className="w-full justify-between h-12 rounded-xl bg-background text-foreground border hover:bg-muted transition-all">
+                    <span className="text-sm">Apply for Leave</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </Card>
               </div>
             </>
           )}

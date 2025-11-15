@@ -252,130 +252,120 @@ export default function EmployeeAttendancePage() {
   const avgHours = records.length > 0 ? totalHours / records.length : 0
 
   return (
-    // Layout: viewport-constrained height with vertical scrolling for consistent behavior
-    <div className="min-h-[100dvh] max-h-[100dvh] overflow-y-auto bg-background">
-      {/* <NavigationHeader title="Attendance" showLogout={false} /> */}
-
-      <div className="border-b border-border bg-gradient-to-b from-card/50 to-background transition-smooth">
-        <div className="9 mx-auto px-6 py-8 sm:py-12">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 mb-8">
-            
-            <Button
-              onClick={async () => {
-                const {
-                  data: { user },
-                } = await supabase.auth.getUser()
-                if (!user) {
-                  toast({ variant: "destructive", title: "Error", description: "Not authenticated" })
-                  router.replace("/auth/login")
-                  return
-                }
-                await loadRecords(user.id)
-              }}
-              className="hover-lift glow-accent bg-accent hover:bg-accent/90 text-accent-foreground w-full sm:w-auto"
-            >
-              <RotateCcw className="w-4 h-4 mr-2" />
-              Refresh
-            </Button>
+    <div className="bg-[#E8E8ED] dark:bg-[#1C1C1E] ">
+      <div className="px-6 py-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl">Attendance</h1>
+            <p className="text-sm text-muted-foreground">Your recent logs and totals.</p>
           </div>
-
-          {!loading && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 slide-up">
-              <div className="bg-card border border-border rounded-lg p-4 hover-lift transition-smooth">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Total Hours</p>
-                    <p className="text-2xl sm:text-3xl font-semibold text-black">{totalHours.toFixed(1)}</p>
-                  </div>
-                  <Clock className="w-8 h-8 text-accent/40" />
-                </div>
-              </div>
-
-              <div className="bg-card border border-border rounded-lg p-4 hover-lift transition-smooth">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Recent Days</p>
-                    <p className="text-2xl sm:text-3xl font-semibold text-primary">{records.length}</p>
-                  </div>
-                  <Calendar className="w-8 h-8 text-primary/40" />
-                </div>
-              </div>
-
-              <div className="bg-card border border-border rounded-lg p-4 hover-lift transition-smooth">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Avg Daily</p>
-                    <p className="text-2xl sm:text-3xl font-semibold text-primary">{avgHours.toFixed(1)}h</p>
-                  </div>
-                  <TrendingUp className="w-8 h-8 text-primary/40" />
-                </div>
-              </div>
-            </div>
-          )}
+          <Button
+            onClick={async () => {
+              const {
+                data: { user },
+              } = await supabase.auth.getUser()
+              if (!user) {
+                toast({ variant: "destructive", title: "Error", description: "Not authenticated" })
+                router.replace("/auth/login")
+                return
+              }
+              await loadRecords(user.id)
+            }}
+            className="h-10 px-4 rounded-xl bg-gradient-to-r from-[#227631] to-[#3FA740] text-white hover:opacity-90"
+          >
+            <RotateCcw className="w-4 h-4 mr-2" /> Refresh
+          </Button>
         </div>
+
+        {!loading && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Total Hours</p>
+                  <p className="text-3xl">{totalHours.toFixed(1)}</p>
+                </div>
+                <Clock className="w-6 h-6 text-muted-foreground" />
+              </div>
+            </Card>
+            <Card className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Recent Days</p>
+                  <p className="text-3xl">{records.length}</p>
+                </div>
+                <Calendar className="w-6 h-6 text-muted-foreground" />
+              </div>
+            </Card>
+            <Card className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Avg Daily</p>
+                  <p className="text-3xl">{avgHours.toFixed(1)}h</p>
+                </div>
+                <TrendingUp className="w-6 h-6 text-muted-foreground" />
+              </div>
+            </Card>
+          </div>
+        )}
       </div>
 
-      <div className="mx-auto px-6 py-8 sm:py-12">
-        <Card className="border border-border shadow-sm hover-lift transition-smooth  p-5">
-          <CardHeader className="border-b border-border bg-card/30 backdrop-blur-sm">
-            <CardTitle className="text-xl sm:text-2xl text-foreground">Attendance Logs</CardTitle>
+      <div className="px-6 py-6">
+        <Card className="rounded-[24px]">
+          <CardHeader className="border-b">
+            <CardTitle className="text-2xl">Attendance Logs</CardTitle>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-5">
             {loading ? (
-              <div className="flex flex-col items-center justify-center py-16 sm:py-20">
-                <Loader2 className="h-8 w-8 animate-spin text-accent mb-4" />
+              <div className="flex flex-col items-center justify-center py-16">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-4" />
                 <p className="text-sm text-muted-foreground">Loading your records...</p>
               </div>
             ) : records.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 sm:py-20">
+              <div className="flex flex-col items-center justify-center py-16">
                 <Calendar className="h-12 w-12 text-muted-foreground/30 mb-3" />
                 <p className="text-muted-foreground text-sm">No attendance logs found</p>
               </div>
             ) : (
-              // Logs table: cap height and enable vertical scrolling to avoid page overflow
-              <div className="overflow-x-auto max-h-[60dvh] overflow-y-auto">
+              <div className=" ">
                 <Table>
                   <TableHeader>
-                    <TableRow className="border-b border-border bg-muted/30 hover:bg-muted/30">
-                      <TableHead className="text-xs sm:text-sm font-semibold text-muted-foreground">Date</TableHead>
-                      <TableHead className="text-xs sm:text-sm font-semibold text-muted-foreground">Login</TableHead>
-                      <TableHead className="text-xs sm:text-sm font-semibold text-muted-foreground">Logout</TableHead>
-                      <TableHead className="text-xs sm:text-sm font-semibold text-muted-foreground">Duration</TableHead>
-                      <TableHead className="text-xs sm:text-sm font-semibold text-muted-foreground">Status</TableHead>
-                      <TableHead className="text-xs sm:text-sm font-semibold text-muted-foreground">Reason</TableHead>
+                    <TableRow>
+                      <TableHead className="text-xs sm:text-sm">Date</TableHead>
+                      <TableHead className="text-xs sm:text-sm">Login</TableHead>
+                      <TableHead className="text-xs sm:text-sm">Logout</TableHead>
+                      <TableHead className="text-xs sm:text-sm">Duration</TableHead>
+                      <TableHead className="text-xs sm:text-sm">Status</TableHead>
+                      <TableHead className="text-xs sm:text-sm">Reason</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {records.map((r, idx) => (
-                      <TableRow
-                        key={r.id}
-                        className="border-b border-border hover:bg-muted/20 transition-colors duration-200 animate-in fade-in"
-                        style={{ animationDelay: `${idx * 30}ms` }}
-                      >
-                        <TableCell className="text-xs sm:text-sm font-medium text-foreground py-3">{r.date}</TableCell>
-                        <TableCell className="text-xs sm:text-sm text-muted-foreground py-3">
+                      <TableRow key={r.id} style={{ animationDelay: `${idx * 30}ms` }}>
+                        <TableCell className="text-xs sm:text-sm font-medium">{r.date}</TableCell>
+                        <TableCell className="text-xs sm:text-sm text-muted-foreground">
                           {formatTimestamp(r.login_time)}
                         </TableCell>
-                        <TableCell className="text-xs sm:text-sm text-muted-foreground py-3">
+                        <TableCell className="text-xs sm:text-sm text-muted-foreground">
                           {formatTimestamp(r.logout_time)}
                         </TableCell>
-                        <TableCell className="text-xs sm:text-sm font-medium text-black py-3">
+                        <TableCell className="text-xs sm:text-sm font-medium">
                           {formatHours(r.total_hours)} mins
                         </TableCell>
-                        <TableCell className="text-xs sm:text-sm capitalize py-3 text-black">
+                        <TableCell className="text-xs sm:text-sm capitalize">
                           <span
-                            className={`inline-block px-2 py-1 text-black rounded text-xs font-medium transition-smooth ${
+                            className={`inline-block px-2 py-1 rounded text-xs font-medium ${
                               r.status === "present"
-                                ? "bg-accent/10 text-accent"
+                                ? "bg-emerald-100 text-emerald-700"
                                 : r.status === "absent"
-                                  ? "bg-destructive/10 text-destructive"
-                                  : "bg-muted text-muted-foreground"
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-gray-100 text-gray-700"
                             }`}
                           >
                             {r.status ?? "-"}
                           </span>
                         </TableCell>
-                        <TableCell className="text-xs sm:text-sm text-muted-foreground py-3 truncate">
+                        <TableCell className="text-xs sm:text-sm text-muted-foreground truncate">
                           {r.reason ?? "-"}
                         </TableCell>
                       </TableRow>
