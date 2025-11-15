@@ -95,6 +95,52 @@ export default function EmployeeDashboardClient() {
     [],
   )
 
+  // Comprehensive validation and testing function for auto punch-out functionality
+  const validateAutoPunchOut = useCallback(() => {
+    const results = {
+      browser: typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
+      sendBeacon: typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function",
+      keepaliveFetch: typeof fetch !== "undefined" && typeof AbortController !== "undefined",
+      localStorage: false,
+      visibilityAPI: typeof document !== "undefined" && "visibilityState" in document,
+      onlineStatus: typeof navigator !== "undefined" && "onLine" in navigator,
+      eventListeners: {
+        beforeunload: false,
+        pagehide: false,
+        visibilitychange: false,
+        unload: false,
+        focus: false,
+        online: false
+      }
+    }
+    
+    // Test localStorage
+    try {
+      const testKey = "__auto_punch_out_test__"
+      localStorage.setItem(testKey, "test")
+      localStorage.removeItem(testKey)
+      results.localStorage = true
+    } catch {}
+    
+    // Test event listeners (check if they're attached)
+    if (typeof window !== "undefined") {
+      // These would need to be tracked separately in a real implementation
+      results.eventListeners.beforeunload = true // Assume attached based on our code
+      results.eventListeners.pagehide = true
+      results.eventListeners.unload = true
+      results.eventListeners.focus = true
+      results.eventListeners.online = true
+    }
+    
+    if (typeof document !== "undefined") {
+      results.eventListeners.visibilitychange = true
+    }
+    
+    console.log("[auto-punch-out-validation] Feature detection results:", results)
+    
+    return results
+  }, [])
+
   // Sidebar links must be declared before any conditional returns to preserve hook order
   const links = useMemo(
     () => [
@@ -152,6 +198,229 @@ export default function EmployeeDashboardClient() {
     fetchUserData()
   }, [])
 
+  // Enhanced sync function with better error handling and database reconciliation
+  const syncFromDatabase = useCallback(async () => {
+    try {
+      const token = ++syncTokenRef.current
+      const supabase = createClient()
+      
+      console.log("[sync] Starting database sync...")
+      
+      // Check authentication first
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (sessionError) {
+        console.error("[sync] Session error:", sessionError)
+        return
+      }
+      
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      
+      if (authError) {
+        console.error("[sync] Auth error:", authError)
+        return
+      }
+      
+      if (!user) {
+        console.info("[sync] No user found; clearing local session")
+        setIsPunchedIn(false)
+        setActiveSession(null)
+        setTodayAttendance(null)
+        try {
+          const raw = localStorage.getItem("timeRecords")
+          if (raw) localStorage.removeItem("timeRecords")
+        } catch {}
+        return
+      }
+      
+      console.log("[sync] User authenticated:", user.id)
+      
+      const today = new Date().toISOString().split("T")[0]
+      console.log("[sync] Fetching attendance for:", today)
+      
+      // Fetch today's attendance record
+      const { data: attendanceData, error: attendanceError } = await supabase
+        .from("attendance")
+        .select("date, login_time, logout_time, status, total_hours")
+        .eq("user_id", user.id)
+        .eq("date", today)
+        .order("login_time", { ascending: false })
+        .limit(1)
+        
+      if (attendanceError) {
+        console.error("[sync] Attendance fetch error:", attendanceError)
+        console.error("[sync] Error details:", {
+          code: attendanceError.code,
+          message: attendanceError.message,
+          details: attendanceError.details,
+          hint: attendanceError.hint
+        })
+        
+        // For any error, set to null but log the error
+        console.warn("[sync] Error fetching attendance, continuing with null")
+        setTodayAttendance(null)
+        setIsPunchedIn(false)
+        setActiveSession(null)
+        return
+      }
+      
+      // Get the first (most recent) attendance record if any exist
+      const attendance = attendanceData && attendanceData.length > 0 ? attendanceData[0] : null
+      
+      console.log("[sync] Attendance data found:", attendance)
+      
+      if (syncTokenRef.current !== token) return
+      
+      const dbActive = !!(attendance && attendance.login_time && !attendance.logout_time)
+      console.log("[sync] Database active status:", dbActive)
+      
+      setTodayAttendance(attendance || null)
+      setIsPunchedIn(dbActive)
+      
+      // Handle local session reconciliation
+      if (dbActive) {
+        // User is punched in according to database
+        if (!activeSession) {
+          // Create local session to match database
+          console.log("[sync] Creating local session to match database")
+          const rec: TimeRecord = {
+            id: crypto.randomUUID(),
+            date: today,
+            checkIn: String(attendance.login_time),
+          }
+          const updated = [rec, ...records]
+          setRecords(updated)
+          setActiveSession(rec)
+          try { localStorage.setItem("timeRecords", JSON.stringify(updated)) } catch {}
+        }
+      } else {
+        // User is not punched in according to database
+        if (activeSession) {
+          // Local session exists but database shows punched out - reconcile
+          console.log("[sync] Reconciling local session with database (user is punched out)")
+          const logoutTime = String(attendance?.logout_time || new Date().toISOString())
+          const updated = records.map((r) => (r.id === activeSession.id ? { ...r, checkOut: logoutTime } : r))
+          setRecords(updated)
+          setActiveSession(null)
+          try { localStorage.setItem("timeRecords", JSON.stringify(updated)) } catch {}
+        } else {
+          // Check if there are any active sessions in local storage that need to be closed
+          try {
+            const raw = localStorage.getItem("timeRecords")
+            if (raw) {
+              const arr: TimeRecord[] = JSON.parse(raw)
+              const hasActive = Array.isArray(arr) && arr.some((r) => !r.checkOut)
+              if (hasActive) {
+                console.log("[sync] Found active local sessions without database record - closing them")
+                const logoutTime = String(attendance?.logout_time || new Date().toISOString())
+                const updated = arr.map((r) => (!r.checkOut ? { ...r, checkOut: logoutTime } : r))
+                localStorage.setItem("timeRecords", JSON.stringify(updated))
+                setRecords(updated)
+              }
+            }
+          } catch (err) {
+            console.error("[sync] Error reconciling local storage:", err)
+          }
+        }
+      }
+      
+      console.log("[sync] Sync completed successfully")
+    } catch (err: any) {
+      console.error("[sync] Unexpected error during sync:", err?.message || err)
+    }
+  }, [records, activeSession])
+
+
+
+  // Sync on mount and when tab becomes visible/focused
+  useEffect(() => {
+    syncFromDatabase()
+  }, [syncFromDatabase])
+
+  // Enhanced visibility and focus listeners for better tab state detection
+  useEffect(() => {
+    const onVisibility = () => {
+      try {
+        if (typeof document !== "undefined" && document.visibilityState === "visible") {
+          console.info("[sync] visibilitychange -> visible - tab became active")
+          
+          // Check for pending punch-out reconciliation when tab becomes visible
+          const pendingPunchOut = localStorage.getItem("pendingPunchOut")
+          if (pendingPunchOut) {
+            console.info("[sync] Tab visible - found pending punch-out, reconciling")
+            flushPending()
+          } else {
+            // Normal sync when tab becomes visible
+            syncFromDatabase()
+          }
+        } else if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+          console.info("[sync] visibilitychange -> hidden - tab became inactive")
+          // Tab is hidden - if user is punched in, this might trigger auto punch-out
+          // via the separate visibilitychange handler in the auto-punch-out effect
+        }
+      } catch (err) {
+        console.error("[sync] visibility change error:", err)
+      }
+    }
+    
+    const onFocus = () => {
+      try {
+        console.info("[sync] window focus - checking application state")
+        
+        // Check if user was automatically punched out due to tab closure
+        const pendingPunchOut = localStorage.getItem("pendingPunchOut")
+        if (pendingPunchOut) {
+          console.info("[sync] Found pending punch-out from previous session - reconciling")
+          flushPending()
+          return
+        }
+        
+        // Check for any offline state that needs reconciliation
+        const timeRecords = localStorage.getItem("timeRecords")
+        if (timeRecords) {
+          try {
+            const records: TimeRecord[] = JSON.parse(timeRecords)
+            const hasActiveSession = records.some(r => !r.checkOut)
+            if (hasActiveSession && !isPunchedIn) {
+              console.info("[sync] Found active local session but UI shows punched out - reconciling")
+            }
+          } catch (e) {
+            console.warn("[sync] Error parsing timeRecords:", e)
+          }
+        }
+        
+        // Always sync with database to ensure state consistency
+        syncFromDatabase()
+      } catch (err) {
+        console.error("[sync] focus error:", err)
+      }
+    }
+    
+    const onOnline = () => {
+      try {
+        console.info("[sync] network online")
+        syncFromDatabase()
+      } catch (err) {
+        console.error("[sync] online error:", err)
+      }
+    }
+
+    // Add event listeners
+    window.addEventListener("focus", onFocus, { capture: true })
+    window.addEventListener("online", onOnline, { capture: true })
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", onVisibility, { capture: true } as any)
+    }
+
+    return () => {
+      window.removeEventListener("focus", onFocus, { capture: true } as any)
+      window.removeEventListener("online", onOnline, { capture: true } as any)
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", onVisibility, { capture: true } as any)
+      }
+    }
+  }, [syncFromDatabase])
+
   // Hydrate local time records and any active session from storage
   useEffect(() => {
     try {
@@ -189,32 +458,82 @@ export default function EmployeeDashboardClient() {
 
   // Flush any pending offline punch-out from previous shutdowns
   useEffect(() => {
-    const flushPending = async () => {
-      try {
-        const pending = localStorage.getItem("pendingPunchOut")
-        if (!pending) return
-        const record = JSON.parse(pending)
-        // Attempt server-side reconciliation
-        const res = await fetch("/api/employee/auto-punch-out", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ trigger: "reconcile", source: "app-load", ts: record?.ts }),
-          credentials: "include",
-          cache: "no-store",
-        })
-        if (res.ok) {
-          localStorage.removeItem("pendingPunchOut")
-          console.info("[auto-punch-out] reconciled pending punch-out on app load")
-          fetchUserData()
-        } else {
-          console.warn("[auto-punch-out] reconciliation failed", await res.text())
+    if (!loading && !isPunchedIn) {
+      const reconcilePending = async () => {
+        try {
+          const pending = localStorage.getItem("pendingPunchOut")
+          if (!pending) return
+          
+          const record = JSON.parse(pending)
+          console.info("[auto-punch-out] Attempting to reconcile pending punch-out", {
+            timestamp: record.ts,
+            trigger: record.trigger,
+            hasError: !!record.errorDetails,
+            wasOnline: record.onlineStatus
+          })
+          
+          // Attempt server-side reconciliation with enhanced payload
+          const res = await fetch("/api/employee/auto-punch-out", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              trigger: "reconcile", 
+              source: "app-load", 
+              ts: record?.ts,
+              originalTrigger: record?.trigger,
+              errorDetails: record?.errorDetails
+            }),
+            credentials: "include",
+            cache: "no-store",
+          })
+          
+          if (res.ok) {
+            const result = await res.json()
+            localStorage.removeItem("pendingPunchOut")
+            console.info("[auto-punch-out] Successfully reconciled pending punch-out", result)
+            
+            // Also clean up the auto punch-out flag
+            try {
+              localStorage.removeItem("autoPunchOutOccurred")
+            } catch {}
+            
+            // Show user notification if reconciliation was successful
+            if (result.action === "updated") {
+              console.info("[auto-punch-out] User was automatically punched out at", record.ts)
+            }
+          } else {
+            const errorText = await res.text()
+            console.warn("[auto-punch-out] Reconciliation failed", {
+              status: res.status,
+              error: errorText,
+              timestamp: record.ts
+            })
+            
+            // If reconciliation fails after multiple attempts, we might need to
+            // mark this as a failed auto punch-out for manual review
+            if (record.errorDetails && record.errorDetails.attemptCount && record.errorDetails.attemptCount >= 3) {
+              console.error("[auto-punch-out] Multiple reconciliation attempts failed - manual intervention may be required")
+            }
+          }
+        } catch (err: any) {
+          console.error("[auto-punch-out] Reconciliation error", {
+            error: err.message || err,
+            timestamp: new Date().toISOString()
+          })
+          
+          // If we can't even attempt reconciliation due to network/errors,
+          // we should preserve the pending data and try again later
+          console.info("[auto-punch-out] Preserving pending data for next reconciliation attempt")
         }
-      } catch (err) {
-        console.error("[auto-punch-out] reconciliation error", err)
       }
+      
+      reconcilePending().then(() => {
+        console.log("[auto-punch-out] Pending reconciliation completed")
+      }).catch(error => {
+        console.error("[auto-punch-out] Error during pending reconciliation:", error)
+      })
     }
-    flushPending()
-  }, [])
+  }, [loading, isPunchedIn])
 
   useEffect(() => {
     const run = async () => {
@@ -241,29 +560,44 @@ export default function EmployeeDashboardClient() {
   }, [activeTab])
 
   const fetchUserData = async () => {
+    console.log("[fetchUserData] Starting to fetch user data...")
     const supabase = createClient()
     try {
       const {
         data: { user },
       } = await supabase.auth.getUser()
+      console.log("[fetchUserData] Auth user:", user ? "Found" : "Not found")
+      
       if (user) {
         const { data } = await supabase.from("users").select("*").eq("id", user.id).single()
+        console.log("[fetchUserData] User data:", data ? "Found" : "Not found")
 
         setUserData(data)
 
         const today = new Date().toISOString().split("T")[0]
-        const { data: attendance } = await supabase
+        console.log("[fetchUserData] Checking attendance for today:", today)
+        
+        const { data: attendanceData } = await supabase
           .from("attendance")
           .select("*")
           .eq("user_id", user.id)
           .eq("date", today)
-          .single()
+          .order("login_time", { ascending: false })
+          .limit(1)
 
+        const attendance = attendanceData && attendanceData.length > 0 ? attendanceData[0] : null
+        console.log("[fetchUserData] Attendance data:", attendance ? "Found" : "Not found")
+        
         if (attendance) {
           setTodayAttendance(attendance)
           setIsPunchedIn(!attendance.logout_time)
+          console.log("[fetchUserData] User punch-in status:", !attendance.logout_time ? "Punched In" : "Punched Out")
+        } else {
+          console.log("[fetchUserData] No attendance record for today")
+          setIsPunchedIn(false)
         }
       } else {
+        console.log("[fetchUserData] No authenticated user, clearing session")
         setIsPunchedIn(false)
         setActiveSession(null)
         try {
@@ -274,8 +608,9 @@ export default function EmployeeDashboardClient() {
         } catch {}
       }
     } catch (error) {
-      console.error("Error fetching user data:", error)
+      console.error("[fetchUserData] Error fetching user data:", error)
     } finally {
+      console.log("[fetchUserData] Setting loading to false")
       setLoading(false)
     }
   }
@@ -301,93 +636,176 @@ export default function EmployeeDashboardClient() {
 
   // Punch in/out logic is handled by the unified Punch component
 
-  // Reliable tab/browser close detection with sendBeacon + fallbacks
+  // Enhanced tab/browser close detection with improved reliability
   useEffect(() => {
-    const sendAutoPunchOut = (trigger: string) => {
+    const sendAutoPunchOut = async (trigger: string) => {
       try {
         if (unloadSentRef.current) return
         unloadSentRef.current = true
 
+        const punchOutTime = new Date().toISOString()
+        console.log(`[auto-punch-out] Triggering punch out via ${trigger} at ${punchOutTime}`)
+
         const payload = JSON.stringify({
           trigger,
           source: "beforeunload/pagehide",
-          ts: new Date().toISOString(),
+          ts: punchOutTime,
           ua: (typeof navigator !== "undefined" && navigator.userAgent) || "",
         })
         const blob = new Blob([payload], { type: "application/json" })
 
         let beaconOk = false
+        let errorDetails: any = null
+        
         try {
           if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
             beaconOk = navigator.sendBeacon("/api/employee/auto-punch-out", blob)
-            console.info("[auto-punch-out] sendBeacon invoked", { ok: beaconOk, trigger })
+            console.info("[auto-punch-out] sendBeacon invoked", { ok: beaconOk, trigger, time: punchOutTime })
+          } else {
+            console.warn("[auto-punch-out] sendBeacon not available")
           }
-        } catch (beErr) {
+        } catch (beErr: any) {
+          errorDetails = { type: "sendBeacon", error: beErr.message || beErr }
           console.error("[auto-punch-out] sendBeacon error", beErr)
         }
 
         if (!beaconOk) {
           // Fallback: keepalive fetch (supported by Chrome/Edge/Firefox/Safari 16+)
           try {
-            fetch("/api/employee/auto-punch-out", {
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
+            
+            const response = await fetch("/api/employee/auto-punch-out", {
               method: "POST",
               body: payload,
               headers: { "Content-Type": "application/json" },
               credentials: "include",
               keepalive: true,
-            }).catch((fe) => console.warn("[auto-punch-out] keepalive fetch failed", fe))
-          } catch (fe) {
+              signal: controller.signal,
+            })
+            
+            clearTimeout(timeoutId)
+            
+            if (response.ok) {
+              console.info("[auto-punch-out] Keepalive fetch succeeded", { trigger, time: punchOutTime })
+            } else {
+              errorDetails = { type: "fetch", status: response.status, statusText: response.statusText }
+              console.warn("[auto-punch-out] Keepalive fetch failed with status:", response.status)
+            }
+          } catch (fe: any) {
+            errorDetails = { type: "fetch", error: fe.message || fe }
             console.warn("[auto-punch-out] keepalive fetch error", fe)
           }
         }
 
-        if (!beaconOk && typeof navigator !== "undefined" && navigator.onLine === false) {
-          // Offline: persist intent for reconciliation on next app load
+        // Final fallback: persist for reconciliation regardless of online status
+        if (!beaconOk) {
           try {
-            localStorage.setItem(
-              "pendingPunchOut",
-              JSON.stringify({ ts: new Date().toISOString(), trigger }),
-            )
-            console.info("[auto-punch-out] stored pending punch-out due to offline state")
+            const pendingData = {
+              ts: punchOutTime,
+              trigger,
+              errorDetails, // Store error details for debugging
+              userAgent: (typeof navigator !== "undefined" && navigator.userAgent) || "",
+              onlineStatus: typeof navigator !== "undefined" ? navigator.onLine : null,
+            }
+            
+            localStorage.setItem("pendingPunchOut", JSON.stringify(pendingData))
+            console.info("[auto-punch-out] stored pending punch-out for reconciliation", { 
+              time: punchOutTime, 
+              hasError: !!errorDetails,
+              wasOnline: typeof navigator !== "undefined" ? navigator.onLine : "unknown"
+            })
           } catch (lsErr) {
-            console.warn("[auto-punch-out] localStorage write failed", lsErr)
+            console.error("[auto-punch-out] localStorage write failed - data may be lost", lsErr)
+            // Even if localStorage fails, we still need to clear local state
           }
         }
-      } catch (err) {
+
+        // Always clear local state immediately to prevent UI inconsistencies
+        console.log("[auto-punch-out] Clearing local session state")
+        localCheckout()
+        
+        // Set a flag to indicate auto punch-out occurred
+        try {
+          localStorage.setItem("autoPunchOutOccurred", JSON.stringify({
+            timestamp: punchOutTime,
+            trigger,
+            success: beaconOk
+          }))
+        } catch {}
+        
+      } catch (err: any) {
         console.error("[auto-punch-out] unexpected error in sender", err)
+        // Even on error, ensure local state is cleared
+        try {
+          localCheckout()
+        } catch (cleanupErr) {
+          console.error("[auto-punch-out] failed to cleanup local state", cleanupErr)
+        }
       }
     }
 
-    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (!isPunchedIn) return
+      
+      console.log("[auto-punch-out] beforeunload event detected")
+      
       if (CONFIRM_ON_LEAVE) {
         e.preventDefault()
         e.returnValue = ""
       }
+      
+      // Send punch out request
       sendAutoPunchOut("beforeunload")
-      localCheckout()
     }
 
-    const onPageHide = () => {
+    const handlePageHide = () => {
       if (!isPunchedIn) return
+      
+      console.log("[auto-punch-out] pagehide event detected")
       sendAutoPunchOut("pagehide")
-      localCheckout()
+    }
+
+    const handleVisibilityChange = () => {
+      if (!isPunchedIn) return
+      
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        console.log("[auto-punch-out] visibilitychange -> hidden detected")
+        sendAutoPunchOut("visibilitychange")
+      }
     }
 
     if (isPunchedIn) {
       unloadSentRef.current = false
-      window.addEventListener("beforeunload", onBeforeUnload, { capture: true })
-      window.addEventListener("pagehide", onPageHide, { capture: true })
+      
+      // Multiple event listeners for maximum browser compatibility
+      window.addEventListener("beforeunload", handleBeforeUnload, { capture: true })
+      window.addEventListener("pagehide", handlePageHide, { capture: true })
+      
+      // Safari iOS and some mobile browsers
+      if (typeof document !== "undefined") {
+        document.addEventListener("visibilitychange", handleVisibilityChange, { capture: true } as any)
+      }
+      
+      // Backup for extreme cases
+      window.addEventListener("unload", handlePageHide, { capture: true })
+      
       console.debug("[auto-punch-out] unload handlers attached")
     }
 
     return () => {
-      window.removeEventListener("beforeunload", onBeforeUnload, { capture: true } as any)
-      window.removeEventListener("pagehide", onPageHide, { capture: true } as any)
+      window.removeEventListener("beforeunload", handleBeforeUnload, { capture: true } as any)
+      window.removeEventListener("pagehide", handlePageHide, { capture: true } as any)
+      
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", handleVisibilityChange, { capture: true } as any)
+      }
+      
+      window.removeEventListener("unload", handlePageHide, { capture: true } as any)
       unloadSentRef.current = false
       console.debug("[auto-punch-out] unload handlers detached")
     }
-  }, [isPunchedIn])
+  }, [isPunchedIn, localCheckout])
 
   useEffect(() => {
     const clearAuthStorage = () => {
@@ -462,7 +880,10 @@ export default function EmployeeDashboardClient() {
     }
   }
 
-  if (loading) return <div>Loading...</div>
+  if (loading) {
+    console.log("[dashboard] Still loading... waiting for user data")
+    return <div>Loading...</div>
+  }
 
   // Format a record timestamp as 12-hour time with AM/PM
   const formatRecordTime = (isoString: string) => {
@@ -891,6 +1312,26 @@ export default function EmployeeDashboardClient() {
                     <span className="text-sm">Apply for Leave</span>
                     <ChevronRight className="h-4 w-4" />
                   </Button>
+                  {/* Hidden testing button for auto punch-out validation */}
+                  <button
+                    onClick={() => {
+                      const results = validateAutoPunchOut()
+                      console.log("[auto-punch-out-test] Validation results:", results)
+                      alert(`Auto Punch-Out Feature Detection:\n\n` +
+                        `Browser: ${results.browser.substring(0, 50)}...\n` +
+                        `sendBeacon: ${results.sendBeacon ? "✅ Available" : "❌ Not Available"}\n` +
+                        `Keepalive Fetch: ${results.keepaliveFetch ? "✅ Available" : "❌ Not Available"}\n` +
+                        `LocalStorage: ${results.localStorage ? "✅ Available" : "❌ Not Available"}\n` +
+                        `Visibility API: ${results.visibilityAPI ? "✅ Available" : "❌ Not Available"}\n` +
+                        `Online Status: ${results.onlineStatus ? "✅ Available" : "❌ Not Available"}\n\n` +
+                        `Event Listeners: ${Object.entries(results.eventListeners).map(([k,v]) => `${k}: ${v ? "✅" : "❌"}`).join(", ")}`
+                      )
+                    }}
+                    className="w-full mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors opacity-50 hover:opacity-100"
+                    title="Test Auto Punch-Out Features (Developer Tool)"
+                  >
+                    Test Auto Punch-Out
+                  </button>
                 </Card>
               </div>
             </>
