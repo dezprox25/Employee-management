@@ -1,7 +1,7 @@
 "use client"
 
 import { createClient } from "@/lib/supabase/client"
-import { useEffect, useState, useMemo, useRef } from "react"
+import { useEffect, useState, useMemo, useRef, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -72,6 +72,17 @@ export default function EmployeeDashboardClient() {
   // Auto punch-out configuration and state
   const CONFIRM_ON_LEAVE = true
   const unloadSentRef = useRef(false)
+  const logoutSentRef = useRef(false)
+  const syncTokenRef = useRef(0)
+
+  const localCheckout = useCallback(() => {
+    setIsPunchedIn(false)
+    setActiveSession(null)
+    try {
+      localStorage.removeItem("timeRecords")
+    } catch { }
+  }, [setIsPunchedIn, setActiveSession])
+
   const commonLateReasons = useMemo(
     () => [
       "Traffic",
@@ -205,6 +216,23 @@ export default function EmployeeDashboardClient() {
     flushPending()
   }, [])
 
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const pending = localStorage.getItem("pendingLogout")
+        if (!pending) return
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          await supabase.auth.signOut()
+        }
+        localStorage.removeItem("pendingLogout")
+      } catch (err) {
+      }
+    }
+    run()
+  }, [])
+
   // Load records when switching to attendance tab
   useEffect(() => {
     if (activeTab === "attendance") {
@@ -235,6 +263,15 @@ export default function EmployeeDashboardClient() {
           setTodayAttendance(attendance)
           setIsPunchedIn(!attendance.logout_time)
         }
+      } else {
+        setIsPunchedIn(false)
+        setActiveSession(null)
+        try {
+          const raw = localStorage.getItem("timeRecords")
+          if (raw) {
+            localStorage.removeItem("timeRecords")
+          }
+        } catch {}
       }
     } catch (error) {
       console.error("Error fetching user data:", error)
@@ -323,25 +360,18 @@ export default function EmployeeDashboardClient() {
 
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       if (!isPunchedIn) return
-      // Optional confirmation per business logic
       if (CONFIRM_ON_LEAVE) {
         e.preventDefault()
         e.returnValue = ""
       }
-      // Try synchronous punch-out start
       sendAutoPunchOut("beforeunload")
+      localCheckout()
     }
 
     const onPageHide = () => {
       if (!isPunchedIn) return
-      // Safari reliability: pagehide fires even on bfcache
       sendAutoPunchOut("pagehide")
-      // Best-effort local checkout to update state; may not complete before unload
-      try {
-        void handleCheckOut()
-      } catch (err) {
-        console.warn("[auto-punch-out] local handleCheckOut failed", err)
-      }
+      localCheckout()
     }
 
     if (isPunchedIn) {
@@ -358,6 +388,64 @@ export default function EmployeeDashboardClient() {
       console.debug("[auto-punch-out] unload handlers detached")
     }
   }, [isPunchedIn])
+
+  useEffect(() => {
+    const clearAuthStorage = () => {
+      try {
+        const keys = Object.keys(localStorage)
+        keys.forEach((k) => {
+          if (/^sb-/i.test(k) || /supabase/i.test(k) || /auth/i.test(k)) {
+            try { localStorage.removeItem(k) } catch {}
+          }
+        })
+      } catch {}
+      try {
+        const skeys = Object.keys(sessionStorage)
+        skeys.forEach((k) => {
+          if (/^sb-/i.test(k) || /supabase/i.test(k) || /auth/i.test(k)) {
+            try { sessionStorage.removeItem(k) } catch {}
+          }
+        })
+      } catch {}
+    }
+
+    const autoLogout = async (trigger: string) => {
+      try {
+        if (logoutSentRef.current) return
+        logoutSentRef.current = true
+        const supabase = createClient()
+        try {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            await supabase.auth.signOut()
+          }
+        } catch {}
+        clearAuthStorage()
+      } catch (err) {
+        try {
+          localStorage.setItem("pendingLogout", JSON.stringify({ ts: new Date().toISOString(), trigger }))
+        } catch {}
+      }
+    }
+
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      localCheckout()
+      autoLogout("beforeunload")
+    }
+    const onPageHide = () => {
+      localCheckout()
+      autoLogout("pagehide")
+    }
+
+    window.addEventListener("beforeunload", onBeforeUnload, { capture: true })
+    window.addEventListener("pagehide", onPageHide, { capture: true })
+
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload as any, { capture: true } as any)
+      window.removeEventListener("pagehide", onPageHide as any, { capture: true } as any)
+      logoutSentRef.current = false
+    }
+  }, [])
 
   // submitLateReason removed; late reason capture handled inside Punch component
   // Late status computation based on scheduled work start and 10-minute tolerance
@@ -598,7 +686,7 @@ export default function EmployeeDashboardClient() {
                   <button
                     key={item.label}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-[20px] transition-all group ${currentPage === item.page
-                        ? "bg-white/70 dark:bg-white/15 text-indigo-600 dark:text-indigo-400 shadow-[0_2px_8px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.9)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.2)] border border-white/60 dark:border-white/20"
+                        ? "bg-white/70 dark:bg-white/15 text-green-600 dark:text-green-400 shadow-[0_2px_8px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.9)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.2)] border border-white/60 dark:border-white/20"
                         : "text-foreground hover:bg-white/40 dark:hover:bg-white/10 border border-transparent"
                       }`}
                     onClick={() => onNavigate(item.page)}
@@ -730,17 +818,17 @@ export default function EmployeeDashboardClient() {
       </Dialog>
 
       {/* Content area */}
-      <div className="flex flex-1 flex-col overflow-y-auto lg:ml-64">
+      <div className="flex flex-1 flex-col overflow-y-auto lg:ml-64  bg-[#E8E8ED] dark:bg-[#1C1C1E] ">
         <DashboardHeader onMenuClick={onMenuClick}  isEmployee={true} />
-        <div className="flex h-full w-full flex-1 flex-col gap-6 rounded-tl-2xl bg-transparent ">
+        <div className="flex h-full w-full flex-1 flex-col gap-6 rounded-tl-2xl bg-transparent p-5   ">
           {/* Breadcrumb */}
          
           {activeTab === "dashboard" && (
             <>
-              <Card className="bg-black border-0 rounded-[24px] p-8 overflow-hidden shadow-lg">
+              <Card className="bg-black border-0 rounded-[24px] h-96 p-8 overflow-hidden shadow-lg">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <h2 className="text-3xl text-[#3FA740] mb-3 text-center">Welcome back {userData?.name ?? "Employee"}</h2>
+                    <h2 className="text-3xl text-[#3FA740] font-bold tracking-wider mb-3 text-center">Welcome back {userData?.name ?? "Employee"}</h2>
                     <p className="text-white text-center mb-1">
                       {userData?.type === "fulltime" ? "Full-time Employee" : userData?.type === "intern1" ? "Working Intern" : "Learning Intern"}
                     </p>

@@ -350,7 +350,7 @@ export default function EmployeeAttendancePage() {
                           {formatTimestamp(r.logout_time)}
                         </TableCell>
                         <TableCell className="text-xs sm:text-sm font-medium">
-                          {formatHours(r.total_hours)} mins
+                          {formatHours(r.total_hours)} 
                         </TableCell>
                         <TableCell className="text-xs sm:text-sm capitalize">
                           <span

@@ -68,7 +68,7 @@ export function DashboardHeader({ onMenuClick, isEmployee = false }: DashboardHe
                 <HelpCircle className="h-5 w-5" />
               </Button>
 
-              <div className="absolute w-60 -top-8 left-1/2 -translate-x-1/2 
+              <div className="absolute w-60 -top-20 left-1 -translate-x-1/2 
       opacity-0 group-hover:opacity-100 
       transition-all bg-black text-white text-xs px-2 py-1 rounded">
                 Need any help contact the Dezprox Team
