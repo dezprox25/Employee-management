@@ -264,6 +264,26 @@ export default function AttendanceReportsPage() {
     return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: true })
   }
 
+  /**
+   * Format numeric hours into H:MM:SS (e.g. 4:30:20).
+   * Accepts a numeric hour value (e.g. 4.5055) and converts it to
+   * hours, minutes, seconds. Returns '-' for invalid inputs.
+   */
+  const formatHours = (hours: number | null | undefined) => {
+    if (hours === null || hours === undefined) return "-"
+    const n = Number(hours)
+    if (Number.isNaN(n) || !isFinite(n)) return "-"
+
+    const totalSeconds = Math.max(0, Math.round(n * 3600))
+    const h = Math.floor(totalSeconds / 3600)
+    const m = Math.floor((totalSeconds % 3600) / 60)
+    const s = totalSeconds % 60
+
+    const mm = String(m).padStart(2, "0")
+    const ss = String(s).padStart(2, "0")
+    return `${h}:${mm}:${ss}`
+  }
+
   const exportToCSV = () => {
     const headers = ["Date", "Employee", "Login Time", "Logout Time", "Total Hours", "Status", "Reason"]
     const rows = filteredRecent.map((record) => [
@@ -508,14 +528,26 @@ export default function AttendanceReportsPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                         <div className="flex flex-col gap-1">
                           <label className="text-xs text-muted-foreground">From date</label>
-                          <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                          {/* <Input type="date" className=" " value={fromDate} onChange={(e) => setFromDate(e.target.value)} /> */}
+                          <Input
+                            type="date"
+                            value={fromDate}
+                            onChange={(e) => setFromDate(e.target.value)}
+                            className="[color-scheme:light] dark:[color-scheme:dark]"
+                          />
                         </div>
                         <div className="flex flex-col gap-1">
                           <label className="text-xs text-muted-foreground">To date</label>
-                          <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                          {/* <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} /> */}
+                          <Input
+                            type="date"
+                            value={toDate}
+                            onChange={(e) => setToDate(e.target.value)}
+                            className="[color-scheme:light] dark:[color-scheme:dark]"
+                          />
                         </div>
                         <div className="flex items-end">
-                          <Button variant="outline" onClick={() => { setFromDate(""); setToDate("") }}>Clear</Button> 
+                          <Button variant="outline" onClick={() => { setFromDate(""); setToDate("") }}>Clear</Button>
                         </div>
                         <div className="flex items-end justify-end md:justify-start">
                           <div className="text-xs text-muted-foreground">Last update: {lastUpdated ? new Date(lastUpdated).toLocaleString() : "-"}</div>
@@ -550,7 +582,7 @@ export default function AttendanceReportsPage() {
                                 <TableCell className="font-medium">{r.name}</TableCell>
                                 <TableCell>{fmtTime(r.login_time)}</TableCell>
                                 <TableCell>{fmtTime(r.logout_time)}</TableCell>
-                                <TableCell>{r.total_hours?.toFixed(2) ?? "-"}</TableCell>
+                                <TableCell>{formatHours(r.total_hours)}</TableCell>
                                 <TableCell>
                                   <span
                                     className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${r.status === "present"

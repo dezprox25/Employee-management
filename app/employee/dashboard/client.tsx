@@ -1958,7 +1958,7 @@ export default function EmployeeDashboardClient() {
             <DialogTitle>Late punch-in reason</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <select
+            {/* <select
               value={lateReasonPreset}
               onChange={(e) => setLateReasonPreset(e.target.value)}
               className="w-full rounded-md border p-2"
@@ -1967,7 +1967,7 @@ export default function EmployeeDashboardClient() {
               {commonLateReasons.map((r) => (
                 <option key={r} value={r}>{r}</option>
               ))}
-            </select>
+            </select> */}
             <Textarea
               value={lateReason}
               onChange={(e) => setLateReason(e.target.value)}

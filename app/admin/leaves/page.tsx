@@ -617,11 +617,11 @@ export default function AdminLeavesPage() {
                               <span
                                 className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                                   l.status === "pending"
-                                    ? "bg-accent/20 text-accent"
+                                    ? "bg-orange-500 text-white"
                                     : l.status === "approved"
                                       ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
                                       : l.status === "rejected"
-                                        ? "bg-destructive/20 text-destructive"
+                                        ? "bg-destructive/20 dark:bg-red-500 dark:text-white text-destructive"
                                         : "bg-muted text-muted-foreground"
                                 }`}
                               >

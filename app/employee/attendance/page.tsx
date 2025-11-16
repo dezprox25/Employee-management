@@ -45,11 +45,25 @@ function formatTimestamp(ts: string | null | undefined): string {
 /**
  * Format numeric hours to two decimals; returns '-' for invalid values.
  */
+/**
+ * Format numeric hours into H:MM:SS (e.g. 4:30:20).
+ * Accepts a numeric hour value (e.g. 4.5055) and converts it to
+ * hours, minutes, seconds. Returns '-' for invalid inputs.
+ */
 function formatHours(hours: number | null | undefined): string {
   if (hours === null || hours === undefined) return "-"
   const n = Number(hours)
-  if (Number.isNaN(n)) return "-"
-  return n.toFixed(2)
+  if (Number.isNaN(n) || !isFinite(n)) return "-"
+
+  // Convert hours (possibly fractional) to total seconds
+  const totalSeconds = Math.max(0, Math.round(n * 3600))
+  const h = Math.floor(totalSeconds / 3600)
+  const m = Math.floor((totalSeconds % 3600) / 60)
+  const s = totalSeconds % 60
+
+  const mm = String(m).padStart(2, "0")
+  const ss = String(s).padStart(2, "0")
+  return `${h}:${mm}:${ss}`
 }
 
 // EmployeeAttendancePage: scroll improvements and documentation added

@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, FileDown, X, CalendarDays, CheckCircle2, Clock, XCircle, Calendar, FileText, ChevronDown, CheckCircle } from "lucide-react"
+import { Plus, FileDown, X, CalendarDays, CheckCircle2, Clock, XCircle, Calendar, FileText, ChevronDown, CheckCircle, RotateCcw } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { z } from "zod"
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyContent, EmptyMedia } from "@/components/ui/empty"
@@ -42,6 +42,8 @@ interface Leave {
 export default function LeavesPage() {
   const [leaves, setLeaves] = useState<Leave[]>([])
   const [loading, setLoading] = useState(true)
+  const [totalLeaves, setTotalLeaves] = useState<number | null>(null)
+  const [usedLeaves, setUsedLeaves] = useState<number | null>(null)
   const [open, setOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -60,34 +62,34 @@ export default function LeavesPage() {
 
   useEffect(() => {
     fetchLeaves()
-    // Subscribe to realtime updates for this user's leaves
-    ;(async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return
-      const channel = supabase
-        .channel("realtime-leaves")
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "leaves", filter: `user_id=eq.${user.id}` },
-          (payload: { eventType?: string; new?: Partial<Leave> }) => {
-            // Re-fetch or apply incremental update
-            fetchLeaves()
-            const action = payload.eventType?.toLowerCase()
-            if (action === "update") {
-              const next = payload.new as Partial<Leave>
-              if (next.status && ["approved", "rejected", "cancelled"].includes(next.status)) {
-                toast({ title: "Leave status updated", description: `Your leave is ${next.status}.` })
+      // Subscribe to realtime updates for this user's leaves
+      ; (async () => {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+        if (!user) return
+        const channel = supabase
+          .channel("realtime-leaves")
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "leaves", filter: `user_id=eq.${user.id}` },
+            (payload: { eventType?: string; new?: Partial<Leave> }) => {
+              // Re-fetch or apply incremental update
+              fetchLeaves()
+              const action = payload.eventType?.toLowerCase()
+              if (action === "update") {
+                const next = payload.new as Partial<Leave>
+                if (next.status && ["approved", "rejected", "cancelled"].includes(next.status)) {
+                  toast({ title: "Leave status updated", description: `Your leave is ${next.status}.` })
+                }
               }
-            }
-          },
-        )
-        .subscribe()
-      return () => {
-        supabase.removeChannel(channel)
-      }
-    })()
+            },
+          )
+          .subscribe()
+        return () => {
+          supabase.removeChannel(channel)
+        }
+      })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -119,6 +121,32 @@ export default function LeavesPage() {
           admin_comment: r.admin_comment ?? null,
         }))
         setLeaves(normalized)
+        // compute used leave days from approved leave rows
+        try {
+          let used = 0
+            ; (normalized || []).forEach((r) => {
+              if (r.status !== "approved") return
+              try {
+                const from = new Date(r.from_date)
+                const to = r.to_date ? new Date(r.to_date) : from
+                const dayMs = 1000 * 60 * 60 * 24
+                const diff = Math.round((to.getTime() - from.getTime()) / dayMs)
+                const days = Math.max(0, diff) + 1
+                if ((r.duration || "full-day") === "half-day") used += 0.5
+                else used += days
+              } catch { }
+            })
+          const rounded = Math.round(used * 2) / 2
+          setUsedLeaves(rounded)
+        } catch (err) {
+          setUsedLeaves(null)
+        }
+
+        // fetch user's total_leaves for display
+        try {
+          const { data: profile } = await supabase.from("users").select("total_leaves").eq("id", user.id).single()
+          setTotalLeaves(profile?.total_leaves ?? null)
+        } catch { setTotalLeaves(null) }
       }
     } catch (error) {
       console.error("Error fetching leaves:", error)
@@ -289,7 +317,7 @@ export default function LeavesPage() {
     }
   }
 
-  
+
 
   /**
    * Render an animated leave card with hover affordances.
@@ -358,7 +386,7 @@ export default function LeavesPage() {
                 Cancel
               </Button>
             )}
-            <Button variant="outline" className="h-9 px-4 rounded-lg text-sm">View Details</Button>
+            {/* <Button variant="outline" className="h-9 px-4 rounded-lg text-sm">View Details</Button> */}
           </div>
         </div>
       </Card>
@@ -371,15 +399,41 @@ export default function LeavesPage() {
     <div className=" bg-[#E8E8ED] dark:bg-[#1C1C1E] p-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl mb-2">My Leaves</h1>
+          <div className="flex items-baseline gap-4">
+            <h1 className="text-3xl mb-2">My Leaves</h1>
+            <div className="text-sm text-muted-foreground">
+              <span className="font-medium">{usedLeaves ?? 0}</span>
+              <span className="mx-1">/</span>
+              <span className="opacity-80">{totalLeaves ?? "-"}</span>
+            </div>
+          </div>
+
           <p className="text-sm text-muted-foreground">Track, apply, and manage leave requests with elegant clarity.</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="h-11 px-6 rounded-xl bg-gradient-to-r from-[#227631] to-[#3FA740] text-white">
-              <Plus className="h-4 w-4 mr-2" /> Apply for Leave
+          <div className="flex items-center gap-3">
+            <DialogTrigger asChild>
+              <Button className="h-11 px-6 rounded-xl bg-gradient-to-r from-[#227631] to-[#3FA740] text-white">
+                <Plus className="h-4 w-4 mr-2" /> Apply for Leave
+              </Button>
+            </DialogTrigger>
+
+            <Button
+              onClick={async () => {
+                // call the page-level fetch to refresh leaves list
+                try {
+                  await fetchLeaves()
+                  toast({ title: "Refreshed", description: "Leave list updated" })
+                } catch (err) {
+                  console.error("Refresh leaves failed", err)
+                  toast({ variant: "destructive", title: "Error", description: "Failed to refresh leaves" })
+                }
+              }}
+              className="h-10 px-4 rounded-xl bg-gradient-to-r from-[#227631] to-[#3FA740] text-white hover:opacity-90"
+            >
+              <RotateCcw className="w-4 h-4 mr-2" /> Refresh
             </Button>
-          </DialogTrigger>
+          </div>
           <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
               <DialogTitle className="text-xl">Apply for Leave</DialogTitle>
@@ -387,11 +441,11 @@ export default function LeavesPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="from_date" className="text-sm">From Date</Label>
-                <Input id="from_date" type="date" value={newLeave.from_date} onChange={(e) => setNewLeave({ ...newLeave, from_date: e.target.value })} />
+                <Input id="from_date" type="date"   className="[color-scheme:light] dark:[color-scheme:dark]" value={newLeave.from_date} onChange={(e) => setNewLeave({ ...newLeave, from_date: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="to_date" className="text-sm">To Date</Label>
-                <Input id="to_date" type="date" value={newLeave.to_date} onChange={(e) => setNewLeave({ ...newLeave, to_date: e.target.value })} />
+                <Input id="to_date" type="date"   className="[color-scheme:light] dark:[color-scheme:dark]"  value={newLeave.to_date} onChange={(e) => setNewLeave({ ...newLeave, to_date: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="category" className="text-sm">Leave Type</Label>

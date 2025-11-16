@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client"
+import { useId } from "react";
 
 interface DashboardHeaderProps {
   onMenuClick: () => void;
@@ -16,6 +17,7 @@ interface DashboardHeaderProps {
 export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [name, setName] = useState<string | null>(null)
+  const tooltipId = useId()
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
@@ -74,16 +76,18 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
 
           <div className="flex items-center gap-2">
 
-            <div className="relative inline-block group overflow-visible">
+            <div className="relative right-4 inline-block group overflow-visible">
               <Button variant="ghost" size="icon" className="rounded-full">
                 <HelpCircle className="h-5 w-5" />
               </Button>
-
-              <div className="absolute w-60 -top-20 left-1 -translate-x-1/2 
-      opacity-0 group-hover:opacity-100 
-      transition-all bg-black text-white text-xs px-2 py-1 rounded">
-                Need any help contact the Dezprox Team
-              </div>
+                <div
+                  id={tooltipId}
+                  role="tooltip"
+                  className="absolute pointer-events-none opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 px-2 py-1 text-[10px] font-medium text-white bg-[#1A1F2C] backdrop-blur-sm rounded-lg shadow-lg border border-neutral-800/10 transition-all duration-200 ease-in-out whitespace-nowrap z-50 bottom-full left-1/2 -translate-x-1/2 -translate-y-2 mb-1"
+                >
+                  Need any help? Contact the Dezprox Team
+                  <span className="absolute w-2 h-2 bg-[#1A1F2C] transform rotate-45 -bottom-1 left-1/2 -translate-x-1/2" />
+                </div>
             </div>
           
             <AnimatedThemeToggler className="p-2 rounded-full hover:bg-accent transition-colors" />
