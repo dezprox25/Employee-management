@@ -51,17 +51,11 @@ export default function Home() {
             </p>
           </div>
           <div className="flex items-center justify-center gap-10">
-            <div className="flex gap-4 justify-center">
+            <div className="flex items-center gap-4 justify-center">
+              <h1 className="text-3xl uppercase tracking-wide font-bold">Avengers</h1>
               <Link href="/auth/login">
-                <Button size="lg" className="gap-2 bg-green-600 text-white hover:bg-white hover:text-green-600">
-                  Employee Login
-                </Button>
-              </Link>
-            </div>
-            <div className="text-center">
-              <Link href="/admin/login">
-                <Button variant="ghost" size="lg" className="text-green-600 hover:text-white hover:bg-green-600">
-                  Admin Login
+                <Button size="lg" className="gap-2 dark:bg-white dark:text-green-500  bg-green-600 uppercase text-white hover:bg-white hover:text-green-600">
+                  Assemble !
                 </Button>
               </Link>
             </div>

@@ -1,202 +1,493 @@
-"use client"
-
-import type React from "react"
-
-import { createClient } from "@/lib/supabase/client"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { useRouter } from "next/navigation"
-import { useState } from "react"
-import { useToast } from "@/hooks/use-toast"
-import { Eye, EyeOff } from "lucide-react"
-import Hyperspeed from '@/components/Hyperspeed';
+'use client'
+import { useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import SplashCursor from "@/components/SplashCursor";
+import { Lock, Mail, User, Shield, Moon, Sun, Eye, EyeOff } from "lucide-react";
+import { motion } from "motion/react";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
-  const { toast } = useToast()
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [employeeEmail, setEmployeeEmail] = useState("");
+  const [employeePassword, setEmployeePassword] = useState("");
+  const [activeTab, setActiveTab] = useState("employee");
+  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
+  const [showEmployeePassword, setShowEmployeePassword] = useState(false);
+  const [isAdminLoading, setIsAdminLoading] = useState(false);
+  const [isEmployeeLoading, setIsEmployeeLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const supabase = createClient()
-    setIsLoading(true)
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const handleAdminSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const supabase = createClient();
+    setIsAdminLoading(true);
 
     try {
       // Basic client-side rate limiting
-      const key = `loginAttempts:${email}:employee`
-      const lockKey = `lockUntil:${email}:employee`
-      const lockUntil = Number(localStorage.getItem(lockKey) || 0)
+      const key = `loginAttempts:${adminEmail}:admin`;
+      const lockKey = `lockUntil:${adminEmail}:admin`;
+      const lockUntil = Number(localStorage.getItem(lockKey) || 0);
+      
       if (lockUntil && Date.now() < lockUntil) {
-        const remaining = Math.ceil((lockUntil - Date.now()) / 60000)
-        throw new Error(`Too many attempts. Try again in ${remaining} min`)
+        const remaining = Math.ceil((lockUntil - Date.now()) / 60000);
+        throw new Error(`Too many attempts. Try again in ${remaining} min`);
       }
 
       const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-      if (error) throw error
+        email: adminEmail,
+        password: adminPassword,
+      });
+      
+      if (error) throw error;
 
-      // Get user role to redirect appropriately
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+      // Get user role to verify admin access
+      const { data: { user } } = await supabase.auth.getUser();
+      
       if (user) {
-        const { data: userData } = await supabase.from("users").select("role").eq("id", user.id).single()
+        const { data: userData } = await supabase
+          .from("users")
+          .select("role")
+          .eq("id", user.id)
+          .single();
 
         if (userData?.role === "admin") {
-          router.push("/admin/dashboard")
+          // Clear failed attempts on success
+          localStorage.removeItem(key);
+          localStorage.removeItem(lockKey);
+          
+          toast({
+            title: "Login Successful",
+            description: "Welcome back, Admin!",
+          });
+          
+          router.push("/admin/dashboard");
         } else {
-          router.push("/employee/dashboard")
+          await supabase.auth.signOut();
+          throw new Error("Unauthorized. Admin access required.");
         }
       }
     } catch (error: unknown) {
       // Track failed attempts and lock after 5 failures for 5 minutes
-      const key = `loginAttempts:${email}:employee`
-      const lockKey = `lockUntil:${email}:employee`
-      const attempts = Number(localStorage.getItem(key) || 0) + 1
-      localStorage.setItem(key, String(attempts))
+      const key = `loginAttempts:${adminEmail}:admin`;
+      const lockKey = `lockUntil:${adminEmail}:admin`;
+      const attempts = Number(localStorage.getItem(key) || 0) + 1;
+      localStorage.setItem(key, String(attempts));
+      
       if (attempts >= 5) {
-        localStorage.setItem(lockKey, String(Date.now() + 5 * 60 * 1000))
-        localStorage.removeItem(key)
+        localStorage.setItem(lockKey, String(Date.now() + 5 * 60 * 1000));
+        localStorage.removeItem(key);
       }
+      
       toast({
         variant: "destructive",
         title: "Login Failed",
         description: error instanceof Error ? error.message : "An error occurred",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsAdminLoading(false);
     }
-  }
+  };
+
+  const handleEmployeeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const supabase = createClient();
+    setIsEmployeeLoading(true);
+
+    try {
+      // Basic client-side rate limiting
+      const key = `loginAttempts:${employeeEmail}:employee`;
+      const lockKey = `lockUntil:${employeeEmail}:employee`;
+      const lockUntil = Number(localStorage.getItem(lockKey) || 0);
+      
+      if (lockUntil && Date.now() < lockUntil) {
+        const remaining = Math.ceil((lockUntil - Date.now()) / 60000);
+        throw new Error(`Too many attempts. Try again in ${remaining} min`);
+      }
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email: employeeEmail,
+        password: employeePassword,
+      });
+      
+      if (error) throw error;
+
+      // Get user role to redirect appropriately
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        const { data: userData } = await supabase
+          .from("users")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+
+        // Clear failed attempts on success
+        localStorage.removeItem(key);
+        localStorage.removeItem(lockKey);
+        
+        toast({
+          title: "Login Successful",
+          description: "Welcome back!",
+        });
+
+        if (userData?.role === "admin") {
+          router.push("/admin/dashboard");
+        } else {
+          router.push("/employee/dashboard");
+        }
+      }
+    } catch (error: unknown) {
+      // Track failed attempts and lock after 5 failures for 5 minutes
+      const key = `loginAttempts:${employeeEmail}:employee`;
+      const lockKey = `lockUntil:${employeeEmail}:employee`;
+      const attempts = Number(localStorage.getItem(key) || 0) + 1;
+      localStorage.setItem(key, String(attempts));
+      
+      if (attempts >= 5) {
+        localStorage.setItem(lockKey, String(Date.now() + 5 * 60 * 1000));
+        localStorage.removeItem(key);
+      }
+      
+      toast({
+        variant: "destructive",
+        title: "Login Failed",
+        description: error instanceof Error ? error.message : "An error occurred",
+      });
+    } finally {
+      setIsEmployeeLoading(false);
+    }
+  };
 
   return (
-    <div className=" bg-black">
-      <div className="w-full h-screen  flex justify-around">
-        <div className="w-1/2 relative overflow-hidden flex items-center">
-          {/* <video
-            className="absolute inset-0 w-full h-full object-cover"
-            src="https://res.cloudinary.com/dn60aovto/video/upload/v1762619868/dezprox-instro_hxdqis.mp4"
-            autoPlay
-            muted
-            loop
-            playsInline
-          /> */}
-          <div className="absolute w-96 h-96 space-y-4  mx-auto left-0 right-0 place-content-center text-center" >
-            <h1 className="text-7xl font-bold text-green-500">Dezprox</h1>
-            <h1 className="text-xl font-semibold text-green-600">Dream | Design | Deploy</h1>
-          </div>
+    <div className={`min-h-screen w-full ${isDarkMode ? 'bg-[#0A0A0A]' : 'bg-[#F5F5F7]'} relative overflow-hidden flex items-center justify-center p-4`}>
+      {/* Animated Background */}
+      <div className="absolute inset-0">
+        <SplashCursor />
+      </div>
 
-          <Hyperspeed
-            effectOptions={{
-              onSpeedUp: () => { },
-              onSlowDown: () => { },
-              distortion: 'turbulentDistortion',
-              length: 400,
-              roadWidth: 10,
-              islandWidth: 2,
-              lanesPerRoad: 4,
-              fov: 90,
-              fovSpeedUp: 150,
-              speedUp: 2,
-              carLightsFade: 0.4,
-              totalSideLightSticks: 20,
-              lightPairsPerRoadWay: 40,
-              shoulderLinesWidthPercentage: 0.05,
-              brokenLinesWidthPercentage: 0.1,
-              brokenLinesLengthPercentage: 0.5,
-              lightStickWidth: [0.12, 0.5],
-              lightStickHeight: [1.3, 1.7],
-              movingAwaySpeed: [60, 80],
-              movingCloserSpeed: [-120, -160],
-              carLightsLength: [400 * 0.03, 400 * 0.2],
-              carLightsRadius: [0.05, 0.14],
-              carWidthPercentage: [0.3, 0.5],
-              carShiftX: [-0.8, 0.8],
-              carFloorSeparation: [0, 5],
-              colors: {
-                roadColor: 0x080808,
-                islandColor: 0x0a0a0a,
-                background: 0x000000,
-                shoulderLines: 0xFFFFFF,
-                brokenLines: 0xFFFFFF,
-                leftCars: [0xD856BF, 0x6750A2, 0xC247AC],
-                rightCars: [0x03B3C3, 0x0E5EA5, 0x324555],
-                sticks: 0x03B3C3,
-              }
-            }}
-          />
+      {/* Dark/Light Mode Toggle */}
+      <motion.button
+        onClick={() => setIsDarkMode(!isDarkMode)}
+        className={`fixed top-6 right-6 z-20 p-3 rounded-full backdrop-blur-[40px] ${
+          isDarkMode 
+            ? 'bg-white/[0.08] border border-white/[0.18]' 
+            : 'bg-black/[0.08] border border-black/[0.18]'
+        } shadow-lg transition-all duration-300 hover:scale-110 active:scale-95`}
+        whileHover={{ rotate: 180 }}
+        transition={{ duration: 0.3 }}
+      >
+        {isDarkMode ? (
+          <Sun className="h-5 w-5 text-white" />
+        ) : (
+          <Moon className="h-5 w-5 text-black" />
+        )}
+      </motion.button>
+
+      {/* Login Container */}
+      <div className="relative z-10 w-full max-w-md">
+        {/* Logo/Brand */}
+        <div className="text-center mb-8">
+          <h1 className={`text-4xl mb-2 font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>Dezprox</h1>
+          <p className={`text-lg font-semibold ${isDarkMode ? 'text-green-500' : 'text-green-600'}`}>Dream | Design | Deploy</p>
+          <p className={`mt-2 ${isDarkMode ? 'text-white/60' : 'text-black/60'}`}>Team Management System</p>
         </div>
 
-        <div className="w-1/2 h-screen p-10 place-content-center">
-          <h1 className="text-9xl font-bold absolute top-0 tracking-[30px] mx-auto right-0 text-transparent bg-clip-text bg-gradient-to-r from-white/10 to-white/5 uppercase ">Employee</h1>
-          <h1 className="text-9xl font-bold absolute bottom-10 tracking-[80px] mx-auto right-0 text-transparent bg-clip-text bg-gradient-to-r from-white/20 to-white/5 uppercase ">Login</h1>
-          <Card className="border-2  border-none w-[500px] mx-auto rounded-none shadow-none bg-transparent">
+        {/* Glass Card */}
+        <div className={`relative backdrop-blur-[40px] ${
+          isDarkMode 
+            ? 'bg-white/[0.08] border border-white/[0.18]' 
+            : 'bg-white/80 border border-black/[0.12]'
+        } rounded-[24px] p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4)]`}>
+          {/* Welcome Text */}
+          <div className="mb-6">
+            <h2 className={`text-2xl mb-1 font-semibold ${isDarkMode ? 'text-white' : 'text-black'}`}>Welcome Back</h2>
+            <p className={`text-sm ${isDarkMode ? 'text-white/60' : 'text-black/60'}`}>Please enter your credentials to sign in</p>
+          </div>
 
-            <CardContent>
-              <form onSubmit={handleLogin} className="space-y-14">
-                <div className="relative">
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    className="border-0 border-b border-white text-white text-center font-semibold tracking-widest py-1 transition-colors focus:outline-none focus:ring-0 focus:border-b focus:border-white peer bg-inherit rounded-none shadow-none"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                  <label
-                    htmlFor="email"
-                    className={`absolute left-0 text-white tracking-widest cursor-text transition-all  ${email ? 'text-xs -top-8 text-blue-700' : 'top-1'} peer-focus:text-xs peer-focus:-top-8 peer-focus:text-blue-700`}
-                  >Email</label>
-                </div>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    className="border-0 border-b border-white text-white text-center font-semibold tracking-widest py-1 transition-colors focus:outline-none focus:ring-0 focus:border-b focus:border-white peer bg-inherit rounded-none shadow-none pr-10"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                  <label
-                    htmlFor="password"
-                    className={`absolute left-0 text-white tracking-widest cursor-text transition-all ${password ? 'text-xs -top-8 text-blue-700' : 'top-1'} peer-focus:text-xs peer-focus:-top-8 peer-focus:text-blue-700`}
-                  >Password</label>
-                  <button
-                    type="button"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                    onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                  </button>
-                </div>
-                <div className="relative group">
-                  <div className="relative w-full h-14 opacity-90 overflow-hidden rounded-xl bg-black z-10">
-                    <div className="absolute z-10 -translate-x-44 group-hover:translate-x-[30rem] ease-in transition-all duration-700 h-full w-44 bg-gradient-to-r from-gray-500 to-white/10 opacity-30 -skew-x-12"></div>
+          <Tabs defaultValue="admin" value={activeTab} onValueChange={setActiveTab} className="w-full">
+            {/* Custom Segmented Control */}
+            <div className={`relative backdrop-blur-md ${
+              isDarkMode 
+                ? 'bg-white/[0.06] border border-white/[0.12]' 
+                : 'bg-black/[0.06] border border-black/[0.12]'
+            } rounded-[16px] p-1.5 mb-8 shadow-inner`}>
+              <div className="grid grid-cols-2 gap-2 relative z-10">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("admin")}
+                  className={`relative py-3.5 px-4 rounded-[12px] transition-all duration-300 flex items-center justify-center gap-2 ${
+                    activeTab === "admin"
+                      ? isDarkMode ? "text-white font-medium" : "text-black font-medium"
+                      : isDarkMode ? "text-white/40 hover:text-white/70" : "text-black/40 hover:text-black/70"
+                  }`}
+                >
+                  <Shield className={`h-4 w-4 transition-transform duration-300 ${
+                    activeTab === "admin" ? "scale-110" : "scale-100"
+                  }`} />
+                  <span className="text-sm">Admin</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("employee")}
+                  className={`relative py-3.5 px-4 rounded-[12px] transition-all duration-300 flex items-center justify-center gap-2 ${
+                    activeTab === "employee"
+                      ? isDarkMode ? "text-white font-medium" : "text-black font-medium"
+                      : isDarkMode ? "text-white/40 hover:text-white/70" : "text-black/40 hover:text-black/70"
+                  }`}
+                >
+                  <User className={`h-4 w-4 transition-transform duration-300 ${
+                    activeTab === "employee" ? "scale-110" : "scale-100"
+                  }`} />
+                  <span className="text-sm">Employee</span>
+                </button>
+              </div>
+              
+              {/* Sliding background */}
+              <motion.div
+                className={`absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] backdrop-blur-xl rounded-[12px] ${
+                  isDarkMode 
+                    ? 'bg-white/[0.18] shadow-[0_0_20px_rgba(255,255,255,0.1),0_2px_8px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.2)]' 
+                    : 'bg-white/90 shadow-[0_0_20px_rgba(0,0,0,0.08),0_2px_8px_rgba(0,0,0,0.15),inset_0_1px_1px_rgba(255,255,255,0.8)]'
+                } border ${
+                  isDarkMode ? 'border-white/20' : 'border-black/10'
+                }`}
+                initial={false}
+                animate={{
+                  x: activeTab === "admin" ? 6 : "calc(100% + 6px)",
+                }}
+                transition={{
+                  type: "spring",
+                  stiffness: 500,
+                  damping: 35,
+                }}
+              />
+            </div>
 
-                    <div className="absolute flex items-center justify-center text-white z-[1] opacity-90 rounded-2xl inset-0.5 bg-black">
-                      <button
-                        type="submit"
-                        disabled={isLoading}
-                        className="font-semibold text-lg h-full opacity-90 w-full px-16 py-3 rounded-xl bg-black"
-                      >
-                        {isLoading ? "Logging in..." : "Employee Login"}
-                      </button>
-                    </div>
-                    <div className="absolute duration-1000 group-hover:animate-spin w-full h-[100px] bg-gradient-to-r from-green-500 to-yellow-500 blur-[30px]"></div>
+            {/* Admin Login */}
+            <TabsContent value="admin" className="mt-0">
+              <motion.form
+                onSubmit={handleAdminSubmit}
+                className="space-y-5"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className="space-y-2">
+                  <Label htmlFor="admin-email" className={`text-sm ${isDarkMode ? 'text-white/80' : 'text-black/80'}`}>Email</Label>
+                  <div className="relative">
+                    <Mail className={`absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 ${isDarkMode ? 'text-white/40' : 'text-black/40'}`} />
+                    <Input
+                      id="admin-email"
+                      type="email"
+                      placeholder="admin@example.com"
+                      value={adminEmail}
+                      onChange={(e) => setAdminEmail(e.target.value)}
+                      className={`pl-11 h-12 backdrop-blur-md rounded-[12px] transition-all ${
+                        isDarkMode 
+                          ? 'bg-white/[0.06] border border-white/[0.12] text-white placeholder:text-white/40 focus:bg-white/[0.08] focus:border-white/[0.24]'
+                          : 'bg-black/[0.06] border border-black/[0.12] text-black placeholder:text-black/40 focus:bg-black/[0.08] focus:border-black/[0.24]'
+                      }`}
+                      required
+                      disabled={isAdminLoading}
+                    />
                   </div>
                 </div>
-              </form>
-            </CardContent>
-          </Card>
+
+                <div className="space-y-2">
+                  <Label htmlFor="admin-password" className={`text-sm ${isDarkMode ? 'text-white/80' : 'text-black/80'}`}>Password</Label>
+                  <div className="relative">
+                    <Lock className={`absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 ${isDarkMode ? 'text-white/40' : 'text-black/40'}`} />
+                    <Input
+                      id="admin-password"
+                      type={showAdminPassword ? "text" : "password"}
+                      placeholder="Enter your password"
+                      value={adminPassword}
+                      onChange={(e) => setAdminPassword(e.target.value)}
+                      className={`pl-11 pr-11 h-12 backdrop-blur-md rounded-[12px] transition-all ${
+                        isDarkMode 
+                          ? 'bg-white/[0.06] border border-white/[0.12] text-white placeholder:text-white/40 focus:bg-white/[0.08] focus:border-white/[0.24]'
+                          : 'bg-black/[0.06] border border-black/[0.12] text-black placeholder:text-black/40 focus:bg-black/[0.08] focus:border-black/[0.24]'
+                      }`}
+                      required
+                      disabled={isAdminLoading}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowAdminPassword(!showAdminPassword)}
+                      className={`absolute right-4 top-1/2 transform -translate-y-1/2 ${isDarkMode ? 'text-white/40 hover:text-white/70' : 'text-black/40 hover:text-black/70'}`}
+                    >
+                      {showAdminPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-sm">
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <input type="checkbox" className={`w-4 h-4 rounded transition-all ${
+                      isDarkMode 
+                        ? 'bg-white/[0.06] border border-white/[0.12]'
+                        : 'bg-black/[0.06] border border-black/[0.12]'
+                    } checked:bg-[#227631] checked:border-[#3FA740]`} />
+                    <span className={`transition-colors ${
+                      isDarkMode 
+                        ? 'text-white/60 group-hover:text-white/80'
+                        : 'text-black/60 group-hover:text-black/80'
+                    }`}>Remember me</span>
+                  </label>
+                 
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={isAdminLoading}
+                  className="w-full h-12 rounded-[16px] text-white border-0 transition-all duration-300 active:scale-95 hover:scale-[1.02] relative overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{
+                    background: 'linear-gradient(180deg, #227631 0%, #3FA740 100%)',
+                    boxShadow: '0 8px 32px rgba(34, 118, 49, 0.4), 0 0 0 1px rgba(63, 167, 64, 0.2)',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isAdminLoading) {
+                      e.currentTarget.style.boxShadow = '0 8px 48px rgba(34, 118, 49, 0.7), 0 0 60px rgba(63, 167, 64, 0.5), 0 0 0 1px rgba(63, 167, 64, 0.3)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = '0 8px 32px rgba(34, 118, 49, 0.4), 0 0 0 1px rgba(63, 167, 64, 0.2)';
+                  }}
+                >
+                  <span className="relative z-10">
+                    {isAdminLoading ? "Signing in..." : "Sign in as Admin"}
+                  </span>
+                  {!isAdminLoading && (
+                    <div 
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"
+                      style={{ mixBlendMode: 'overlay' }}
+                    />
+                  )}
+                </Button>
+              </motion.form>
+            </TabsContent>
+
+            {/* Employee Login */}
+            <TabsContent value="employee" className="mt-0">
+              <motion.form
+                onSubmit={handleEmployeeSubmit}
+                className="space-y-5"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className="space-y-2">
+                  <Label htmlFor="employee-email" className={`text-sm ${isDarkMode ? 'text-white/80' : 'text-black/80'}`}>Email</Label>
+                  <div className="relative">
+                    <Mail className={`absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 ${isDarkMode ? 'text-white/40' : 'text-black/40'}`} />
+                    <Input
+                      id="employee-email"
+                      type="email"
+                      placeholder="employee@example.com"
+                      value={employeeEmail}
+                      onChange={(e) => setEmployeeEmail(e.target.value)}
+                      className={`pl-11 h-12 backdrop-blur-md rounded-[12px] transition-all ${
+                        isDarkMode 
+                          ? 'bg-white/[0.06] border border-white/[0.12] text-white placeholder:text-white/40 focus:bg-white/[0.08] focus:border-white/[0.24]'
+                          : 'bg-black/[0.06] border border-black/[0.12] text-black placeholder:text-black/40 focus:bg-black/[0.08] focus:border-black/[0.24]'
+                      }`}
+                      required
+                      disabled={isEmployeeLoading}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="employee-password" className={`text-sm ${isDarkMode ? 'text-white/80' : 'text-black/80'}`}>Password</Label>
+                  <div className="relative">
+                    <Lock className={`absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 ${isDarkMode ? 'text-white/40' : 'text-black/40'}`} />
+                    <Input
+                      id="employee-password"
+                      type={showEmployeePassword ? "text" : "password"}
+                      placeholder="Enter your password"
+                      value={employeePassword}
+                      onChange={(e) => setEmployeePassword(e.target.value)}
+                      className={`pl-11 pr-11 h-12 backdrop-blur-md rounded-[12px] transition-all ${
+                        isDarkMode 
+                          ? 'bg-white/[0.06] border border-white/[0.12] text-white placeholder:text-white/40 focus:bg-white/[0.08] focus:border-white/[0.24]'
+                          : 'bg-black/[0.06] border border-black/[0.12] text-black placeholder:text-black/40 focus:bg-black/[0.08] focus:border-black/[0.24]'
+                      }`}
+                      required
+                      disabled={isEmployeeLoading}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowEmployeePassword(!showEmployeePassword)}
+                      className={`absolute right-4 top-1/2 transform -translate-y-1/2 ${isDarkMode ? 'text-white/40 hover:text-white/70' : 'text-black/40 hover:text-black/70'}`}
+                    >
+                      {showEmployeePassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-sm">
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <input type="checkbox" className={`w-4 h-4 rounded transition-all ${
+                      isDarkMode 
+                        ? 'bg-white/[0.06] border border-white/[0.12]'
+                        : 'bg-black/[0.06] border border-black/[0.12]'
+                    } checked:bg-blue-600 checked:border-blue-500`} />
+                    <span className={`transition-colors ${
+                      isDarkMode 
+                        ? 'text-white/60 group-hover:text-white/80'
+                        : 'text-black/60 group-hover:text-black/80'
+                    }`}>Remember me</span>
+                  </label>
+               
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={isEmployeeLoading}
+                  className="w-full h-12 rounded-[16px] text-white border-0 transition-all duration-200 active:scale-95 hover:scale-[1.02] relative overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{
+                    background: 'linear-gradient(180deg, #2563EB 0%, #1D4ED8 100%)',
+                    boxShadow: '0 8px 32px rgba(37, 99, 235, 0.4), 0 0 0 1px rgba(29, 78, 216, 0.2)',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isEmployeeLoading) {
+                      e.currentTarget.style.boxShadow = '0 8px 48px rgba(37, 99, 235, 0.7), 0 0 60px rgba(29, 78, 216, 0.5), 0 0 0 1px rgba(29, 78, 216, 0.3)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = '0 8px 32px rgba(37, 99, 235, 0.4), 0 0 0 1px rgba(29, 78, 216, 0.2)';
+                  }}
+                >
+                  <span className="relative z-10">
+                    {isEmployeeLoading ? "Signing in..." : "Sign in as Employee"}
+                  </span>
+                  {!isEmployeeLoading && (
+                    <div 
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"
+                      style={{ mixBlendMode: 'overlay' }}
+                    />
+                  )}
+                </Button>
+              </motion.form>
+            </TabsContent>
+          </Tabs>
+
+          {/* Footer */}
+          <div className={`mt-6 text-center text-sm ${isDarkMode ? 'text-white/40' : 'text-black/40'}`}>
+            <p>© 2025 Dezprox. All rights reserved.</p>
+          </div>
         </div>
       </div>
     </div>
-  )
+  );
 }
