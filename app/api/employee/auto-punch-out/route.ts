@@ -37,21 +37,24 @@ export async function POST(req: Request) {
 
   try {
     const today = new Date().toISOString().split("T")[0]
-    const { data: attendance, error: selErr } = await server
+    const { data: attendances, error: selErr } = await server
       .from("attendance")
       .select("id, login_time, logout_time, status")
       .eq("user_id", user.id)
       .eq("date", today)
-      .single()
+      .order("login_time", { ascending: false })
 
     if (selErr) {
       console.error("[auto-punch-out] select error", selErr)
       return NextResponse.json({ ok: false, error: selErr.message, code: selErr.code || "SELECT_ERROR" }, { status: 500 })
     }
 
-    if (!attendance) {
+    if (!attendances || attendances.length === 0) {
       return NextResponse.json({ ok: true, action: "none", reason: "no_attendance_row" })
     }
+
+    // Pick the latest attendance row
+    const attendance = attendances[0]
 
     if (attendance.logout_time) {
       return NextResponse.json({ ok: true, action: "none", reason: "already_logged_out" })

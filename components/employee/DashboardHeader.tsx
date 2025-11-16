@@ -1,3 +1,5 @@
+"use client"
+
 import { RefreshCw, Menu, Search, HelpCircle, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -5,21 +7,34 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client"
 
 interface DashboardHeaderProps {
   onMenuClick: () => void;
-  isEmployee?: boolean;
 }
 
-export function DashboardHeader({ onMenuClick, isEmployee = false }: DashboardHeaderProps) {
+export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [name, setName] = useState<string | null>(null)
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
 
-    return () => clearInterval(timer);
+    // fetch user name for employee header
+    ;(async () => {
+      try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        const { data: profile } = await supabase.from("users").select("name").eq("id", user.id).single()
+        if (profile && profile.name) setName(profile.name)
+      } catch (err) {
+        // ignore - header should still render
+      }
+    })()
+
+    return () => clearInterval(timer)
   }, []);
 
   const formatTime = (date: Date) => {
@@ -46,12 +61,8 @@ export function DashboardHeader({ onMenuClick, isEmployee = false }: DashboardHe
               <Menu className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="text-2xl">
-                {isEmployee ? "Hello, Employee 👋" : "Hello, Admin 👋"}
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                {isEmployee ? "Here's your dashboard today." : "Here's what's going on today."}
-              </p>
+              <h1 className="text-2xl">Hello, {name ?? "Employee"}</h1>
+              <p className="text-sm text-muted-foreground mt-1">Here's your dashboard today.</p>
               <div className="flex items-center gap-4 mt-2">
                 <span className="text-xs text-emerald-600 dark:text-emerald-400">Live updates</span>
                 <span className="text-xs text-muted-foreground">
