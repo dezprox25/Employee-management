@@ -319,7 +319,7 @@ export function DashboardHeader({
                             </Dialog>
                         </SheetContent>
                     </Sheet>
-                    <AnimatedThemeToggler className="p-2 rounded-full hover:bg-accent transition-colors" />
+                    <AnimatedThemeToggler className="p-1  rounded-full hover:bg-accent transition-colors" />
                 </div>
 
             </div>

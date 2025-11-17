@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import SplashCursor from "@/components/SplashCursor";
-import { Lock, Mail, User, Shield, Moon, Sun, Eye, EyeOff } from "lucide-react";
-import { motion } from "motion/react";
+import { Lock, Mail, User, Shield, Moon, Sun, Eye, EyeOff, Sparkles } from "lucide-react";
+import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +19,7 @@ export default function LoginPage() {
   const [employeePassword, setEmployeePassword] = useState("");
   const [activeTab, setActiveTab] = useState("employee");
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [enableSplash, setEnableSplash] = useState(true);
   const [showAdminPassword, setShowAdminPassword] = useState(false);
   const [showEmployeePassword, setShowEmployeePassword] = useState(false);
   const [isAdminLoading, setIsAdminLoading] = useState(false);
@@ -172,26 +173,42 @@ export default function LoginPage() {
     <div className={`min-h-screen w-full ${isDarkMode ? 'bg-[#0A0A0A]' : 'bg-[#F5F5F7]'} relative overflow-hidden flex items-center justify-center p-4`}>
       {/* Animated Background */}
       <div className="absolute inset-0">
-        <SplashCursor />
+        {enableSplash && <SplashCursor />}
       </div>
 
       {/* Dark/Light Mode Toggle */}
-      <motion.button
-        onClick={() => setIsDarkMode(!isDarkMode)}
-        className={`fixed top-6 right-6 z-20 p-3 rounded-full backdrop-blur-[40px] ${
-          isDarkMode 
-            ? 'bg-white/[0.08] border border-white/[0.18]' 
-            : 'bg-black/[0.08] border border-black/[0.18]'
-        } shadow-lg transition-all duration-300 hover:scale-110 active:scale-95`}
-        whileHover={{ rotate: 180 }}
-        transition={{ duration: 0.3 }}
-      >
-        {isDarkMode ? (
-          <Sun className="h-5 w-5 text-white" />
-        ) : (
-          <Moon className="h-5 w-5 text-black" />
-        )}
-      </motion.button>
+      <div className="fixed top-6 right-6 z-20 flex gap-2">
+        <motion.button
+          onClick={() => setIsDarkMode(!isDarkMode)}
+          className={`p-3 rounded-full backdrop-blur-[40px] ${
+            isDarkMode 
+              ? 'bg-white/[0.08] border border-white/[0.18]' 
+              : 'bg-black/[0.08] border border-black/[0.18]'
+          } shadow-lg transition-all duration-300 hover:scale-110 active:scale-95`}
+          whileHover={{ rotate: 180 }}
+          transition={{ duration: 0.3 }}
+        >
+          {isDarkMode ? (
+            <Sun className="h-5 w-5 text-white" />
+          ) : (
+            <Moon className="h-5 w-5 text-black" />
+          )}
+        </motion.button>
+        <motion.button
+          onClick={() => setEnableSplash(!enableSplash)}
+          className={`p-3 rounded-full backdrop-blur-[40px] ${
+            isDarkMode 
+              ? 'bg-white/[0.08] border border-white/[0.18]' 
+              : 'bg-black/[0.08] border border-black/[0.18]'
+          } shadow-lg transition-all duration-300 hover:scale-110 active:scale-95`}
+          whileHover={{ scale: 1.1 }}
+          transition={{ duration: 0.2 }}
+          aria-pressed={enableSplash}
+          aria-label="Toggle splash cursor"
+        >
+          <Sparkles className={`h-5 w-5 ${isDarkMode ? 'text-white' : 'text-black'} ${enableSplash ? '' : 'opacity-50'}`} />
+        </motion.button>
+      </div>
 
       {/* Login Container */}
       <div className="relative z-10 w-full max-w-md">
@@ -222,55 +239,62 @@ export default function LoginPage() {
                 : 'bg-black/[0.06] border border-black/[0.12]'
             } rounded-[16px] p-1.5 mb-8 shadow-inner`}>
               <div className="grid grid-cols-2 gap-2 relative z-10">
-                <button
+                <motion.button
+                  layout
                   type="button"
                   onClick={() => setActiveTab("admin")}
-                  className={`relative py-3.5 px-4 rounded-[12px] transition-all duration-300 flex items-center justify-center gap-2 ${
+                  className={`relative py-3.5 px-5 rounded-[12px] transition-all duration-300 flex items-center justify-center gap-4 ${
                     activeTab === "admin"
-                      ? isDarkMode ? "text-white font-medium" : "text-black font-medium"
-                      : isDarkMode ? "text-white/40 hover:text-white/70" : "text-black/40 hover:text-black/70"
+                      ? isDarkMode ? "text-white font-medium dark:bg-white/20  " : "text-black font-medium bg-black/20"
+                      : isDarkMode ? "text-white/40  hover:text-white/70" : "text-black/40 hover:text-black/70"
                   }`}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
                 >
                   <Shield className={`h-4 w-4 transition-transform duration-300 ${
-                    activeTab === "admin" ? "scale-110" : "scale-100"
+                    activeTab === "admin" ? "scale-110 " : "scale-100"
                   }`} />
                   <span className="text-sm">Admin</span>
-                </button>
-                <button
+                  {activeTab === "admin" && (
+                    <motion.div
+                      layoutId="active-pill"
+                      className="absolute inset-0 bg-white 
+                      dark:bg-white/20 
+                      bg-black/20
+                      rounded-lg -z-10"
+                      initial={false}
+                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    />
+                  )}
+                </motion.button>
+                <motion.button
+                  layout
                   type="button"
                   onClick={() => setActiveTab("employee")}
                   className={`relative py-3.5 px-4 rounded-[12px] transition-all duration-300 flex items-center justify-center gap-2 ${
                     activeTab === "employee"
-                      ? isDarkMode ? "text-white font-medium" : "text-black font-medium"
+                      ? isDarkMode ? "text-white font-medium dark:bg-white/20 " : "text-black font-medium bg-black/20"
                       : isDarkMode ? "text-white/40 hover:text-white/70" : "text-black/40 hover:text-black/70"
                   }`}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
                 >
                   <User className={`h-4 w-4 transition-transform duration-300 ${
                     activeTab === "employee" ? "scale-110" : "scale-100"
                   }`} />
                   <span className="text-sm">Employee</span>
-                </button>
+                  {activeTab === "employee" && (
+                    <motion.div
+                      layoutId="active-pill"
+                      className="absolute inset-0 bg-white bg-white/20  bg-black/20 rounded-lg -z-10"
+                      initial={false}
+                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    />
+                  )}
+                </motion.button>
               </div>
-              
-              {/* Sliding background */}
-              <motion.div
-                className={`absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] backdrop-blur-xl rounded-[12px] ${
-                  isDarkMode 
-                    ? 'bg-white/[0.18] shadow-[0_0_20px_rgba(255,255,255,0.1),0_2px_8px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.2)]' 
-                    : 'bg-white/90 shadow-[0_0_20px_rgba(0,0,0,0.08),0_2px_8px_rgba(0,0,0,0.15),inset_0_1px_1px_rgba(255,255,255,0.8)]'
-                } border ${
-                  isDarkMode ? 'border-white/20' : 'border-black/10'
-                }`}
-                initial={false}
-                animate={{
-                  x: activeTab === "admin" ? 6 : "calc(100% + 6px)",
-                }}
-                transition={{
-                  type: "spring",
-                  stiffness: 500,
-                  damping: 35,
-                }}
-              />
             </div>
 
             {/* Admin Login */}

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
@@ -556,51 +557,48 @@ export default function AttendanceReportsPage() {
                     </div>
 
                     <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="border-border hover:bg-transparent">
-                            <TableHead>Date</TableHead>
-                            <TableHead>Employee</TableHead>
-                            <TableHead>Login</TableHead>
-                            <TableHead>Logout</TableHead>
-                            <TableHead>Hours</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Reason</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-white/30 dark:border-white/10">
+                            <th className="text-left py-3 px-4 text-sm text-muted-foreground">Date</th>
+                            <th className="text-left py-3 px-4 text-sm text-muted-foreground">Employee</th>
+                            <th className="text-left py-3 px-4 text-sm text-muted-foreground">Login</th>
+                            <th className="text-left py-3 px-4 text-sm text-muted-foreground">Logout</th>
+                            <th className="text-left py-3 px-4 text-sm text-muted-foreground">Hours</th>
+                            <th className="text-left py-3 px-4 text-sm text-muted-foreground">Status</th>
+                            <th className="text-left py-3 px-4 text-sm text-muted-foreground">Reason</th>
+                          </tr>
+                        </thead>
+                        <tbody>
                           {filteredRecent.length === 0 ? (
-                            <TableRow className="border-border hover:bg-transparent">
-                              <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                                No records found
-                              </TableCell>
-                            </TableRow>
+                            <tr className="border-b border-white/20 dark:border-white/5 last:border-0">
+                              <td colSpan={7} className="py-6 px-4 text-center text-sm text-muted-foreground">No records found</td>
+                            </tr>
                           ) : (
                             filteredRecent.map((r) => (
-                              <TableRow key={r.id} className="border-border hover:bg-muted/50 transition-smooth">
-                                <TableCell className="font-mono text-sm">{r.date}</TableCell>
-                                <TableCell className="font-medium">{r.name}</TableCell>
-                                <TableCell>{fmtTime(r.login_time)}</TableCell>
-                                <TableCell>{fmtTime(r.logout_time)}</TableCell>
-                                <TableCell>{formatHours(r.total_hours)}</TableCell>
-                                <TableCell>
-                                  <span
-                                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${r.status === "present"
-                                      ? "bg-accent/20 text-accent"
+                              <tr key={r.id} className="border-b border-white/20 dark:border-white/5 last:border-0">
+                                <td className="py-3 px-4 text-sm font-mono">{r.date}</td>
+                                <td className="py-3 px-4 text-sm font-medium">{r.name}</td>
+                                <td className="py-3 px-4 text-sm">{fmtTime(r.login_time)}</td>
+                                <td className="py-3 px-4 text-sm">{fmtTime(r.logout_time)}</td>
+                                <td className="py-3 px-4 text-sm">{formatHours(r.total_hours)}</td>
+                                <td className="py-3 px-4">
+                                  <Badge
+                                    className={`${r.status === "present"
+                                      ? "rounded-[8px] bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/30"
                                       : r.status === "late"
-                                        ? "bg-chart-3/20 text-chart-3"
-                                        : "bg-destructive/20 text-destructive"
-                                      }`}
+                                      ? "rounded-[8px] bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border-yellow-500/30"
+                                      : "rounded-[8px] bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/30"}`}
                                   >
                                     {r.status ?? "-"}
-                                  </span>
-                                </TableCell>
-                                <TableCell className="text-sm text-muted-foreground">{r.reason ?? "-"}</TableCell>
-                              </TableRow>
+                                  </Badge>
+                                </td>
+                                <td className="py-3 px-4 text-sm text-muted-foreground">{r.reason ?? "-"}</td>
+                              </tr>
                             ))
                           )}
-                        </TableBody>
-                      </Table>
+                        </tbody>
+                      </table>
                     </div>
                   </CardContent>
                 </Card>

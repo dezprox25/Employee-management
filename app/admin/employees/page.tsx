@@ -17,7 +17,7 @@ import { DashboardHeader } from "@/components/DashboardHeader"
 interface Employee {
   id: string
   name: string
-  password:string
+  password: string
   email: string
   type: string
   work_time_start: string
@@ -30,15 +30,17 @@ interface Employee {
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
-  const [open, setOpen] = useState(false)
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [newEmployee, setNewEmployee] = useState({
     name: "",
     email: "",
     type: "fulltime",
     password: "",
   })
+  const [formData, setFormData] = useState({ fullName: "", email: "", password: "", workType: "Full-time" })
   const [showPassword, setShowPassword] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [searchTerm, setSearchTerm] = useState("")
   const [page, setPage] = useState<number>(1)
   const [pageSize, setPageSize] = useState<number>(12)
   const [totalCount, setTotalCount] = useState<number>(0)
@@ -115,13 +117,13 @@ export default function EmployeesPage() {
   }, [])
 
   // Server-side pagination and search only
-  const fetchEmployeesPage = useCallback(async (newPage: number, newPageSize: number) => {
+  const fetchEmployeesPage = useCallback(async (newPage: number, newPageSize: number, searchOverride?: string) => {
     try {
       setLoading(true)
       const params = new URLSearchParams()
       params.set("page", String(newPage))
       params.set("pageSize", String(newPageSize))
-      params.set("search", searchQuery)
+      params.set("search", typeof searchOverride === "string" ? searchOverride : searchQuery)
       params.set("includeCount", "true")
 
       const res = await fetch(`/api/admin/list-employees?${params.toString()}`, {
@@ -184,6 +186,12 @@ export default function EmployeesPage() {
 
   const visibleEmployees = useMemo(() => employees, [employees])
 
+  const filteredEmployees = useMemo(() => {
+    const q = (searchTerm || "").trim().toLowerCase()
+    if (!q) return visibleEmployees
+    return visibleEmployees.filter((e) => (e.name || "").toLowerCase().includes(q) || (e.email || "").toLowerCase().includes(q))
+  }, [visibleEmployees, searchTerm])
+
   const openEdit = (emp: Employee) => {
     setEditEmployee(emp)
     setEditOpen(true)
@@ -193,9 +201,9 @@ export default function EmployeesPage() {
     if (!editEmployee?.id) return
     try {
       const payload: any = {}
-      ;["name", "email", "type", "work_time_start", "work_time_end", "total_leaves", "used_leaves"].forEach((k) => {
-        if ((editEmployee as any)[k] !== undefined) payload[k] = (editEmployee as any)[k]
-      })
+        ;["name", "email", "type", "work_time_start", "work_time_end", "total_leaves", "used_leaves"].forEach((k) => {
+          if ((editEmployee as any)[k] !== undefined) payload[k] = (editEmployee as any)[k]
+        })
       await supabase.from("users").update(payload).eq("id", editEmployee.id)
       toast({ title: "Success", description: "Employee updated" })
       setEditOpen(false)
@@ -247,7 +255,7 @@ export default function EmployeesPage() {
       let data: any = { error: undefined }
       try {
         data = await res.json()
-      } catch {}
+      } catch { }
 
       if (!res.ok) {
         console.error("[EmployeesPage] add employee failed", { status: res.status, body: data })
@@ -256,16 +264,16 @@ export default function EmployeesPage() {
           code === "AUTH_UNAUTHORIZED"
             ? "You are not authenticated. Please log in again."
             : code === "AUTH_FORBIDDEN"
-            ? "You must be an admin to add employees."
-            : code === "VALIDATION_EMAIL"
-            ? "Invalid email address."
-            : code === "VALIDATION_PASSWORD"
-            ? "Weak password: use at least 8 characters with letters and numbers."
-            : code === "VALIDATION_NAME"
-            ? "Name is required."
-            : code === "VALIDATION_TYPE"
-            ? "Invalid employee type."
-            : data?.error || `Server returned ${res.status}`
+              ? "You must be an admin to add employees."
+              : code === "VALIDATION_EMAIL"
+                ? "Invalid email address."
+                : code === "VALIDATION_PASSWORD"
+                  ? "Weak password: use at least 8 characters with letters and numbers."
+                  : code === "VALIDATION_NAME"
+                    ? "Name is required."
+                    : code === "VALIDATION_TYPE"
+                      ? "Invalid employee type."
+                      : data?.error || `Server returned ${res.status}`
         toast({ variant: "destructive", title: "Failed to add employee", description: message })
         return
       }
@@ -355,10 +363,10 @@ export default function EmployeesPage() {
           code === "NOT_AUTHENTICATED"
             ? "Unauthorized: please log in as an admin or enable code admin mode."
             : code === "NOT_ADMIN"
-            ? "Forbidden: only admins can reset passwords."
-            : code === "VALIDATION_PASSWORD"
-            ? data?.error || "Password must be at least 8 characters with letters and numbers."
-            : data?.error || `Server returned ${res.status}`
+              ? "Forbidden: only admins can reset passwords."
+              : code === "VALIDATION_PASSWORD"
+                ? data?.error || "Password must be at least 8 characters with letters and numbers."
+                : data?.error || `Server returned ${res.status}`
         toast({ variant: "destructive", title: "Reset failed", description })
         return
       }
@@ -407,96 +415,125 @@ export default function EmployeesPage() {
         <div className="flex justify-between items-center">
           <h2 className="text-3xl font-bold">Employees</h2>
           {/* Removed view toggle and page size select to simplify UI */}
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="gap-2 bg-gradient-to-b from-green-500/50 to-green-500 hover:from-green-500 hover:to-green-500/50 rounded-2xl">
-                <Plus className="w-4 h-4" />
+              <Button
+                className="rounded-2xl shadow-lg text-white border-0 transition-all duration-200 active:scale-95 hover:shadow-xl"
+                style={{ background: 'linear-gradient(180deg, #227631 0%, #3FA740 100%)' }}
+              >
+                <Plus className="h-4 w-4 mr-2" />
                 Add Employee
               </Button>
             </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Employee</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input
-                    id="name"
-                    value={newEmployee.name}
-                    onChange={(e) => setNewEmployee({ ...newEmployee, name: e.target.value })}
-                    placeholder="John Doe"
-                    className="bg-input text-input-foreground outline-none border-none "
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={newEmployee.email}
-                    onChange={(e) => setNewEmployee({ ...newEmployee, email: e.target.value })}
-                    placeholder="john@example.com"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <div className="relative">
+
+            {/* Add Employee Dialog */}
+            <DialogContent className="sm:max-w-[440px] backdrop-blur-[80px] bg-white/80 dark:bg-black/60 border border-white/40 dark:border-white/[0.15] rounded-[28px] shadow-[0_20px_60px_rgba(0,0,0,0.35),0_0_1px_rgba(255,255,255,0.5)_inset] p-0 overflow-hidden">
+              <div className="p-8">
+                <DialogHeader className="space-y-2">
+                  <DialogTitle className="text-[26px] text-black dark:text-white tracking-tight">Add New Employee</DialogTitle>
+                  <DialogDescription className="text-[15px] text-black/60 dark:text-white/60">Enter the details of the new employee.</DialogDescription>
+                </DialogHeader>
+                <form className="space-y-4 mt-6">
+                  <div className="space-y-2.5">
+                    <Label htmlFor="fullName" className="text-[13px] text-black/70 dark:text-white/70 pl-1">Full Name</Label>
                     <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      value={newEmployee.password}
-                      onChange={(e) => setNewEmployee({ ...newEmployee, password: e.target.value })}
-                      placeholder="Set an initial password"
-                      className="bg-input text-input-foreground outline-none border-none pr-10"
+                      id="fullName"
+                      placeholder="John Doe"
+                      value={formData.fullName}
+                      onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                      className="h-[50px] backdrop-blur-xl bg-black/[0.04] dark:bg-white/[0.08] border border-black/[0.08] dark:border-white/[0.15] rounded-[14px] px-4 transition-all duration-200 focus:bg-black/[0.06] dark:focus:bg-white/[0.12] focus:border-black/[0.15] dark:focus:border-white/[0.25] text-[15px] text-black dark:text-white placeholder:text-black/40 dark:placeholder:text-white/40 shadow-sm"
                     />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                      onClick={() => setShowPassword((prev) => !prev)}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <Eye className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </Button>
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="type">Work Type</Label>
-                  <Select value={newEmployee.type} onValueChange={(type) => setNewEmployee({ ...newEmployee, type })}>
-                    <SelectTrigger id="type" className="bg-input text-input-foreground outline-none border-none ">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="fulltime">Full-time</SelectItem>
-                      <SelectItem value="intern1">Intern (Working)</SelectItem>
-                      <SelectItem value="intern2">Intern (Learning)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button onClick={handleAddEmployee} className="w-full bg-green-500">
-                  Add Employee
-                </Button>
+                  
+                  <div className="space-y-2.5">
+                    <Label htmlFor="email" className="text-[13px] text-black/70 dark:text-white/70 pl-1">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="john@example.com"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      className="h-[50px] backdrop-blur-xl bg-black/[0.04] dark:bg-white/[0.08] border border-black/[0.08] dark:border-white/[0.15] rounded-[14px] px-4 transition-all duration-200 focus:bg-black/[0.06] dark:focus:bg-white/[0.12] focus:border-black/[0.15] dark:focus:border-white/[0.25] text-[15px] text-black dark:text-white placeholder:text-black/40 dark:placeholder:text-white/40 shadow-sm"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2.5">
+                    <Label htmlFor="password" className="text-[13px] text-black/70 dark:text-white/70 pl-1">Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Set an initial password"
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        className="h-[50px] pr-12 backdrop-blur-xl bg-black/[0.04] dark:bg-white/[0.08] border border-black/[0.08] dark:border-white/[0.15] rounded-[14px] px-4 transition-all duration-200 focus:bg-black/[0.06] dark:focus:bg-white/[0.12] focus:border-black/[0.15] dark:focus:border-white/[0.25] text-[15px] text-black dark:text-white placeholder:text-black/40 dark:placeholder:text-white/40 shadow-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-black/50 dark:text-white/50 hover:text-black/70 dark:hover:text-white/70 transition-all duration-200 active:scale-90"
+                      >
+                        {showPassword ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2.5">
+                    <Label htmlFor="workType" className="text-[13px] text-black/70 dark:text-white/70 pl-1">Work Type</Label>
+                    <Select
+                      value={formData.workType}
+                      onValueChange={(value) => setFormData({ ...formData, workType: value })}
+                    >
+                      <SelectTrigger className="h-[50px] backdrop-blur-xl bg-black/[0.04] dark:bg-white/[0.08] border border-black/[0.08] dark:border-white/[0.15] rounded-[14px] px-4 transition-all duration-200 focus:bg-black/[0.06] dark:focus:bg-white/[0.12] focus:border-black/[0.15] dark:focus:border-white/[0.25] text-[15px] text-black dark:text-white shadow-sm">
+                        <SelectValue placeholder="Select work type" />
+                      </SelectTrigger>
+                      <SelectContent className="backdrop-blur-[80px] bg-white/90 dark:bg-black/90 border border-white/40 dark:border-white/[0.15] rounded-[18px] shadow-[0_20px_60px_rgba(0,0,0,0.35)] p-1.5">
+                        <SelectItem value="Full-time" className="text-[15px] text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10 rounded-[12px] my-0.5 px-3 py-2.5 cursor-pointer transition-all duration-150">Full-time</SelectItem>
+                        <SelectItem value="Intern (Working)" className="text-[15px] text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10 rounded-[12px] my-0.5 px-3 py-2.5 cursor-pointer transition-all duration-150">Intern (Working)</SelectItem>
+                        <SelectItem value="Intern (Learning)" className="text-[15px] text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10 rounded-[12px] my-0.5 px-3 py-2.5 cursor-pointer transition-all duration-150">Intern (Learning)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <Button
+                    type="submit"
+                    className="w-full h-[52px] rounded-[16px] text-white text-[16px] font-medium border-0 transition-all duration-300 active:scale-[0.97] hover:scale-[1.01] mt-6 shadow-[0_8px_24px_rgba(34,118,49,0.4)] hover:shadow-[0_12px_32px_rgba(34,118,49,0.5)]"
+                    style={{
+                      background: 'linear-gradient(180deg, #227631 0%, #3FA740 100%)',
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      // UI-only: close dialog without submitting to backend
+                      setIsAddDialogOpen(false);
+                    }}
+                  >
+                    Add Employee
+                  </Button>
+                </form>
               </div>
             </DialogContent>
           </Dialog>
         </div>
 
-        <div className="grid grid-cols-1 gap-4">
-          <div className="space-y-3">
-            <Label htmlFor="search">Search</Label>
-            <Input id="search" 
-            value={searchQuery} 
-            onChange={(e) => setSearchQuery(e.target.value)} 
-            onBlur={() => fetchEmployeesPage(1, pageSize)} 
-            placeholder="Search name or email"
-            className="w-1/3" />
+        <Card className="p-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+
+            <Input
+              placeholder="Search name or email"
+              className="pl-10 bg-white/40 dark:bg-white/5 border-white/60 dark:border-white/20 rounded-2xl backdrop-blur-sm "
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onBlur={() => {
+                if (searchTerm.trim() === "") return; 
+
+                setSearchQuery(searchTerm);
+                fetchEmployeesPage(1, pageSize, searchTerm);
+              }}
+            />
           </div>
-        </div>
+
+        </Card>
 
         <div className="flex items-center justify-between">
           <div className="text-sm text-muted-foreground">Page {page} of {Math.max(1, Math.ceil(totalCount / pageSize))} ({totalCount} employees)</div>
@@ -509,10 +546,10 @@ export default function EmployeesPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {visibleEmployees.map((employee) => (
+          {filteredEmployees.map((employee) => (
             <Card
               key={employee.id}
-              className="dark:bg-[#333335] bg-[#fff] border-gray-400 border-[#fff] rounded-[30px] shadow-sm"
+              className="p-6 space-y-4 bg-white dark:bg-[#333335] rounded-3xl shadow-sm"
             >
               <CardHeader className="pb-3">
                 <CardTitle className="text-xl font-semibold">{employee.name}</CardTitle>
@@ -521,7 +558,7 @@ export default function EmployeesPage() {
                   <span>{employee.email}</span>
                 </div>
               </CardHeader>
-              <hr />
+              <hr className="" />
               <CardContent className="text-sm py-2 my-2">
                 <div className="" />
                 <div className="space-y-3 py-2">
@@ -555,7 +592,7 @@ export default function EmployeesPage() {
                   <div className="grid grid-cols-3 gap-3">
                     <Button
                       size="sm"
-                      className="w-full rounded-2xl bg-[#1d4ed8] hover:bg-[#1e40af] text-white"
+                      className="w-full rounded-[12px] bg-blue-600 hover:bg-blue-700 text-white border-0 transition-all duration-200 active:scale-95 shadow-md hover:shadow-lg"
                       onClick={() => openEdit(employee)}
                     >
                       Edit
@@ -563,14 +600,14 @@ export default function EmployeesPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="w-full rounded-2xl"
+                      className="w-full  rounded-[12px] border-white/60 dark:border-white/20 hover:bg-white/40 dark:hover:bg-white/10 transition-all duration-200 active:scale-95"
                       onClick={() => openResetDialog(employee.id)}
                     >
                       Reset Password
                     </Button>
                     <Button
                       size="sm"
-                      className="w-full rounded-2xl bg-[#dc2626] hover:bg-[#b91c1c] text-white"
+                      className="w-full rounded-[12px] bg-red-600 hover:bg-red-700 text-white border-0 transition-all duration-200 active:scale-95 shadow-md hover:shadow-lg"
                       onClick={() => confirmDelete(employee.id)}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -620,52 +657,101 @@ export default function EmployeesPage() {
           </DialogContent>
         </Dialog>
         <Dialog open={editOpen} onOpenChange={setEditOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit Employee</DialogTitle>
-            </DialogHeader>
+          <DialogContent className="sm:max-w-[440px] backdrop-blur-[80px] bg-white/80 dark:bg-black/60 border border-white/40 dark:border-white/[0.15] rounded-[28px] shadow-[0_20px_60px_rgba(0,0,0,0.35),0_0_1px_rgba(255,255,255,0.5)_inset] p-0 overflow-hidden">
             {editEmployee && (
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="ename">Full Name</Label>
-                  <Input id="ename" value={editEmployee.name ?? ""} onChange={(e) => setEditEmployee({ ...editEmployee, name: e.target.value })} />
-                </div>
-                <div>
-                  <Label htmlFor="eemail">Email</Label>
-                  <Input id="eemail" type="email" value={editEmployee.email ?? ""} onChange={(e) => setEditEmployee({ ...editEmployee, email: e.target.value })} />
-                </div>
-                <div>
-                  <Label>Work Type</Label>
-                  <Select value={editEmployee.type ?? "fulltime"} onValueChange={(v) => setEditEmployee({ ...editEmployee, type: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="fulltime">Full-time</SelectItem>
-                      <SelectItem value="intern1">Intern (Working)</SelectItem>
-                      <SelectItem value="intern2">Intern (Learning)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label htmlFor="estart">Work Start</Label>
-                    <Input id="estart" value={editEmployee.work_time_start ?? ""} onChange={(e) => setEditEmployee({ ...editEmployee, work_time_start: e.target.value })} />
+              <div className="p-8">
+                <DialogHeader className="space-y-2">
+                  <DialogTitle className="text-[26px] text-black dark:text-white tracking-tight">Edit Employee</DialogTitle>
+                  <DialogDescription className="text-[15px] text-black/60 dark:text-white/60">Update the details of the employee.</DialogDescription>
+                </DialogHeader>
+                <form className="space-y-4 mt-6">
+                  <div className="space-y-2.5">
+                    <Label htmlFor="ename" className="text-[13px] text-black/70 dark:text-white/70 pl-1">Full Name</Label>
+                    <Input
+                      id="ename"
+                      value={editEmployee.name ?? ""}
+                      onChange={(e) => setEditEmployee({ ...editEmployee, name: e.target.value })}
+                      className="h-[50px] backdrop-blur-xl bg-black/[0.04] dark:bg-white/[0.08] border border-black/[0.08] dark:border-white/[0.15] rounded-[14px] px-4 transition-all duration-200 focus:bg-black/[0.06] dark:focus:bg-white/[0.12] focus:border-black/[0.15] dark:focus:border-white/[0.25] text-[15px] text-black dark:text-white placeholder:text-black/40 dark:placeholder:text-white/40 shadow-sm"
+                    />
                   </div>
-                  <div>
-                    <Label htmlFor="eend">Work End</Label>
-                    <Input id="eend" value={editEmployee.work_time_end ?? ""} onChange={(e) => setEditEmployee({ ...editEmployee, work_time_end: e.target.value })} />
+
+                  <div className="space-y-2.5">
+                    <Label htmlFor="eemail" className="text-[13px] text-black/70 dark:text-white/70 pl-1">Email</Label>
+                    <Input
+                      id="eemail"
+                      type="email"
+                      value={editEmployee.email ?? ""}
+                      onChange={(e) => setEditEmployee({ ...editEmployee, email: e.target.value })}
+                      className="h-[50px] backdrop-blur-xl bg-black/[0.04] dark:bg-white/[0.08] border border-black/[0.08] dark:border-white/[0.15] rounded-[14px] px-4 transition-all duration-200 focus:bg-black/[0.06] dark:focus:bg-white/[0.12] focus:border-black/[0.15] dark:focus:border-white/[0.25] text-[15px] text-black dark:text-white placeholder:text-black/40 dark:placeholder:text-white/40 shadow-sm"
+                    />
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label htmlFor="etotal">Total Leaves</Label>
-                    <Input id="etotal" type="number" value={editEmployee.total_leaves ?? 0} onChange={(e) => setEditEmployee({ ...editEmployee, total_leaves: Number(e.target.value) })} />
+
+                  <div className="space-y-2.5">
+                    <Label className="text-[13px] text-black/70 dark:text-white/70 pl-1">Work Type</Label>
+                    <Select value={editEmployee.type ?? "fulltime"} onValueChange={(v) => setEditEmployee({ ...editEmployee, type: v })}>
+                      <SelectTrigger className="h-[50px] backdrop-blur-xl bg-black/[0.04] dark:bg-white/[0.08] border border-black/[0.08] dark:border-white/[0.15] rounded-[14px] px-4 transition-all duration-200 focus:bg-black/[0.06] dark:focus:bg-white/[0.12] focus:border-black/[0.15] dark:focus:border-white/[0.25] text-[15px] text-black dark:text-white shadow-sm">
+                        <SelectValue placeholder="Select work type" />
+                      </SelectTrigger>
+                      <SelectContent className="backdrop-blur-[80px] bg-white/90 dark:bg-black/90 border border-white/40 dark:border-white/[0.15] rounded-[18px] shadow-[0_20px_60px_rgba(0,0,0,0.35)] p-1.5">
+                        <SelectItem value="fulltime" className="text-[15px] text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10 rounded-[12px] my-0.5 px-3 py-2.5 cursor-pointer transition-all duration-150">Full-time</SelectItem>
+                        <SelectItem value="intern1" className="text-[15px] text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10 rounded-[12px] my-0.5 px-3 py-2.5 cursor-pointer transition-all duration-150">Intern (Working)</SelectItem>
+                        <SelectItem value="intern2" className="text-[15px] text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10 rounded-[12px] my-0.5 px-3 py-2.5 cursor-pointer transition-all duration-150">Intern (Learning)</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div>
-                    <Label htmlFor="eused">Used Leaves</Label>
-                    <Input id="eused" type="number" value={editEmployee.used_leaves ?? 0} onChange={(e) => setEditEmployee({ ...editEmployee, used_leaves: Number(e.target.value) })} />
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-2.5">
+                      <Label htmlFor="estart" className="text-[13px] text-black/70 dark:text-white/70 pl-1">Work Start</Label>
+                      <Input
+                        id="estart"
+                        value={editEmployee.work_time_start ?? ""}
+                        onChange={(e) => setEditEmployee({ ...editEmployee, work_time_start: e.target.value })}
+                        className="h-[50px] backdrop-blur-xl bg-black/[0.04] dark:bg-white/[0.08] border border-black/[0.08] dark:border-white/[0.15] rounded-[14px] px-4 transition-all duration-200 focus:bg-black/[0.06] dark:focus:bg-white/[0.12] focus:border-black/[0.15] dark:focus:border-white/[0.25] text-[15px] text-black dark:text-white placeholder:text-black/40 dark:placeholder:text-white/40 shadow-sm"
+                      />
+                    </div>
+                    <div className="space-y-2.5">
+                      <Label htmlFor="eend" className="text-[13px] text-black/70 dark:text-white/70 pl-1">Work End</Label>
+                      <Input
+                        id="eend"
+                        value={editEmployee.work_time_end ?? ""}
+                        onChange={(e) => setEditEmployee({ ...editEmployee, work_time_end: e.target.value })}
+                        className="h-[50px] backdrop-blur-xl bg-black/[0.04] dark:bg-white/[0.08] border border-black/[0.08] dark:border-white/[0.15] rounded-[14px] px-4 transition-all duration-200 focus:bg-black/[0.06] dark:focus:bg-white/[0.12] focus:border-black/[0.15] dark:focus:border-white/[0.25] text-[15px] text-black dark:text-white placeholder:text-black/40 dark:placeholder:text-white/40 shadow-sm"
+                      />
+                    </div>
                   </div>
-                </div>
-                <Button onClick={handleUpdateEmployee} className="w-full">Save Changes</Button>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-2.5">
+                      <Label htmlFor="etotal" className="text-[13px] text-black/70 dark:text-white/70 pl-1">Total Leaves</Label>
+                      <Input
+                        id="etotal"
+                        type="number"
+                        value={editEmployee.total_leaves ?? 0}
+                        onChange={(e) => setEditEmployee({ ...editEmployee, total_leaves: Number(e.target.value) })}
+                        className="h-[50px] backdrop-blur-xl bg-black/[0.04] dark:bg-white/[0.08] border border-black/[0.08] dark:border-white/[0.15] rounded-[14px] px-4 transition-all duration-200 focus:bg-black/[0.06] dark:focus:bg-white/[0.12] focus:border-black/[0.15] dark:focus:border-white/[0.25] text-[15px] text-black dark:text-white placeholder:text-black/40 dark:placeholder:text-white/40 shadow-sm"
+                      />
+                    </div>
+                    <div className="space-y-2.5">
+                      <Label htmlFor="eused" className="text-[13px] text-black/70 dark:text-white/70 pl-1">Used Leaves</Label>
+                      <Input
+                        id="eused"
+                        type="number"
+                        value={editEmployee.used_leaves ?? 0}
+                        onChange={(e) => setEditEmployee({ ...editEmployee, used_leaves: Number(e.target.value) })}
+                        className="h-[50px] backdrop-blur-xl bg-black/[0.04] dark:bg-white/[0.08] border border-black/[0.08] dark:border-white/[0.15] rounded-[14px] px-4 transition-all duration-200 focus:bg-black/[0.06] dark:focus:bg-white/[0.12] focus:border-black/[0.15] dark:focus:border-white/[0.25] text-[15px] text-black dark:text-white placeholder:text-black/40 dark:placeholder:text-white/40 shadow-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={handleUpdateEmployee}
+                    className="w-full h-[52px] rounded-[16px] text-white text-[16px] font-medium border-0 transition-all duration-300 active:scale-[0.97] hover:scale-[1.01] mt-6 shadow-[0_8px_24px_rgba(34,118,49,0.4)] hover:shadow-[0_12px_32px_rgba(34,118,49,0.5)]"
+                    style={{ background: 'linear-gradient(180deg, #227631 0%, #3FA740 100%)' }}
+                  >
+                    Save Changes
+                  </Button>
+                </form>
               </div>
             )}
           </DialogContent>
