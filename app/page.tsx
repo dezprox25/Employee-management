@@ -34,7 +34,7 @@ export default function Home() {
 
   return (
     <>
-      <div className="min-h-screen flex flex-col  items-center justify-center  text-white overflow-hidden">
+      <div className="min-h-screen lg:flex hidden flex-col   items-center justify-center  text-white overflow-hidden">
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute top-20 left-20 w-72 h-72 bg-primary/10 rounded-full blur-3xl animate-pulse" />
           <div className="absolute bottom-20 right-20 w-72 h-72 bg-primary/5 rounded-full blur-3xl animate-pulse" />
