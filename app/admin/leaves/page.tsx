@@ -5,13 +5,14 @@ import { useToast } from "@/hooks/use-toast"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { Loader2, Search, Filter, TrendingUp, Users, Calendar, AlertCircle } from "lucide-react"
+import { Loader2, Search, Filter, TrendingUp, Users, Calendar, AlertCircle, FileText, Download } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { inclusiveDaysBetween } from "@/lib/date"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DashboardHeader } from "@/components/DashboardHeader"
-
+import { MetricCard } from "@/components/ui/MetricCard"
 type LeaveRow = {
   id: string
   user_id: string
@@ -60,8 +61,12 @@ export default function AdminLeavesPage() {
   const [latePatterns, setLatePatterns] = useState<any>([])
   const [leaveBreakdown, setLeaveBreakdown] = useState<any>({})
   const [typeDistribution, setTypeDistribution] = useState<any>([])
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewPath, setPreviewPath] = useState<string | null>(null)
+  const [previewName, setPreviewName] = useState<string | null>(null)
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null)
 
-  
+
 
   const computeLeaveDays = (l: LeaveRow) => {
     try {
@@ -236,6 +241,28 @@ export default function AdminLeavesPage() {
     }
   }
 
+  const isImagePath = (path: string) => /\.(png|jpg|jpeg|webp|gif)$/i.test(path)
+  const deriveStoragePath = (l: LeaveRow) => {
+    const raw = (l.document_url || "").trim()
+    if (!raw) return null
+    if (/^https?:\/\//i.test(raw)) {
+      const m = raw.match(/leave_docs\/(.+)$/)
+      return m ? m[1] : null
+    }
+    if (raw.includes("/")) return raw
+    return `${l.user_id}/${raw}`
+  }
+  const fetchSignedUrl = async (path: string) => {
+    try {
+      const res = await fetch(`/api/admin/leave-doc-url?path=${encodeURIComponent(path)}`)
+      const json = await res.json().catch(() => null)
+      if (!res.ok || !json?.ok) return null
+      return json?.url || null
+    } catch {
+      return null
+    }
+  }
+
   const runAction = async () => {
     if (!actionTarget) return
     const { id, type } = actionTarget
@@ -346,7 +373,15 @@ export default function AdminLeavesPage() {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 fade-in">
           <Card className="hover-lift dark:bg-[#333335] bg-[#F3F3F3] border-gray-400 border-[#fff] rounded-[30px]">
-            <CardContent className="pt-6">
+            <MetricCard
+              title="Total Employees"
+              value={balances.length}
+              icon={Users}
+              iconColor="text-blue-600 dark:text-blue-400"
+              iconBgColor="bg-blue-100 dark:bg-blue-950"
+            />
+            {/*             
+            <MetricCard className="pt-6">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground mb-2">Total Employees</p>
@@ -354,11 +389,19 @@ export default function AdminLeavesPage() {
                 </div>
                 <Users className="w-10 h-10 text-primary/40" />
               </div>
-            </CardContent>
+            </MetricCard> */}
           </Card>
 
           <Card className="hover-lift dark:bg-[#333335] bg-[#F3F3F3] border-gray-400 border-[#fff] rounded-[30px]">
-            <CardContent className="pt-6">
+
+            <MetricCard
+              title="Pending Requests"
+              value={leaves.filter((l) => l.status === "pending").length}
+              icon={AlertCircle}
+              iconColor="text-[#FF9900]"
+              iconBgColor="bg-[#FFE6CC]"
+            />
+            {/* <MetricCard className="pt-6">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground mb-2">Pending Requests</p>
@@ -368,11 +411,18 @@ export default function AdminLeavesPage() {
                 </div>
                 <AlertCircle className="w-10 h-10 text-[#FF9900]" />
               </div>
-            </CardContent>
+            </MetricCard> */}
           </Card>
 
           <Card className="hover-lift dark:bg-[#333335] bg-[#F3F3F3] border-gray-400 border-[#fff] rounded-[30px]">
-            <CardContent className="pt-6">
+            <MetricCard
+              title="Approved This Period"
+              value={leaves.filter((l) => l.status === "approved").length}
+              icon={TrendingUp}
+              iconColor="text-[#009933]"
+              iconBgColor="bg-[#CCFFE6]"
+            />
+            {/* <MetricCard className="pt-6">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground mb-2">Approved This Period</p>
@@ -382,76 +432,68 @@ export default function AdminLeavesPage() {
                 </div>
                 <TrendingUp className="w-10 h-10 text-[#009933]" />
               </div>
-            </CardContent>
+            </MetricCard>  */}
           </Card>
         </div>
 
         {/* Leave Summary Section */}
-        <Card className="mb-8 fade-in border-border/40 shadow-md overflow-hidden">
-          <CardHeader className="bg-gradient-to-r from-primary/5 to-accent/5 border-b border-border/40">
+        {/* Employee Leave Summary */}
+        <Card className="p-6 mb-8 fade-in border-border/40 shadow-md overflow-hidden">
+          <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-primary" />
-              <CardTitle>Employee Leave Summary</CardTitle>
+              <h2 className="text-lg font-semibold">Employee Leave Summary</h2>
             </div>
-          </CardHeader>
-          <CardContent className="pt-6">
-            {summaryRows.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No approved leaves yet.</p>
-              </div>
-            ) : (
-              <>
-                <div className="mb-4">
-                  <select
-                    aria-label="Sort Summary"
-                    className="w-full md:w-48 rounded-lg border border-border/40 px-3 py-2 text-sm bg-card transition-smooth focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    value={sortSummaryBy}
-                    onChange={(e) => setSortSummaryBy(e.target.value)}
-                  >
-                    <option value="days_desc">Sort by Days (desc)</option>
-                    <option value="days_asc">Sort by Days (asc)</option>
-                    <option value="name_asc">Sort by Name (A→Z)</option>
-                    <option value="name_desc">Sort by Name (Z→A)</option>
-                  </select>
-                </div>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="hover:bg-transparent border-border/40">
-                        <TableHead className="font-semibold text-foreground">Employee</TableHead>
-                        <TableHead className="font-semibold text-foreground">Total Days</TableHead>
-                        <TableHead className="font-semibold text-foreground">Date Range</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {summaryRows.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={3} className="text-center text-muted-foreground">
-                            No leave requests yet.
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        summaryRows.map((row) => (
-                          <TableRow key={row.id} className="hover:bg-muted/50 transition-smooth border-border/30">
-                            <TableCell className="font-medium">{row.name ?? row.id}</TableCell>
-                            <TableCell className="font-semibold text-primary">{row.totalDays}/{row.maxDays}</TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {row.earliestFrom && row.latestTo
-                                ? `${new Date(row.earliestFrom).toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${new Date(row.latestTo).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
-                                : "-"}
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </>
-            )}
-          </CardContent>
+            <div>
+              <Select value={sortSummaryBy} onValueChange={setSortSummaryBy}>
+                <SelectTrigger className="w-[200px] rounded-[12px] border border-white/60 dark:border-white/20 bg-white/40 dark:bg-white/5 px-3 py-2 text-sm transition-smooth focus:outline-none focus:ring-2 focus:ring-primary/50">
+                  <SelectValue placeholder="Sort by Days Used" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="days_desc">Sort by Days Used</SelectItem>
+                  <SelectItem value="days_asc">Sort by Days (asc)</SelectItem>
+                  <SelectItem value="name_asc">Sort by Name (A→Z)</SelectItem>
+                  <SelectItem value="name_desc">Sort by Name (Z→A)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-white/30 dark:border-white/10">
+                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Employees</th>
+                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Total Days</th>
+                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Date Range</th>
+                </tr>
+              </thead>
+              <tbody>
+                {summaryRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="text-center py-8 text-muted-foreground">
+                      No approved leaves yet.
+                    </td>
+                  </tr>
+                ) : (
+                  summaryRows.map((row) => (
+                    <tr key={row.id} className="border-b border-white/20 dark:border-white/5 last:border-0 hover:bg-muted/50 transition-smooth">
+                      <td className="py-4 px-4 font-medium">{row.name ?? row.id}</td>
+                      <td className="py-4 px-4 font-semibold text-primary">{row.totalDays}/{row.maxDays}</td>
+                      <td className="py-4 px-4 text-muted-foreground">
+                        {row.earliestFrom && row.latestTo
+                          ? `${new Date(row.earliestFrom).toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${new Date(row.latestTo).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+                          : "-"}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </Card>
 
-       
+
 
         {/* Manage Leave Requests Section */}
         <Card className="fade-in border-border/40 shadow-md overflow-hidden">
@@ -470,7 +512,7 @@ export default function AdminLeavesPage() {
             ) : (
               <>
                 {/* Filters */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+                <div className="flex items-center justify-between gap-3 mb-6">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
@@ -478,57 +520,81 @@ export default function AdminLeavesPage() {
                       placeholder="Search by reason or ID..."
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      className="pl-10 transition-smooth focus:ring-2 focus:ring-primary/50"
+                      className="pl-10 w-[300px] transition-smooth focus:ring-2 focus:ring-primary/50"
                     />
                   </div>
-                  <select
-                    aria-label="Filter Status"
-                    className="rounded-lg border border-border/40 px-3 py-2 text-sm bg-card transition-smooth focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="pending">Pending</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Rejected</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
-                  <select
-                    aria-label="Filter Duration"
-                    className="rounded-lg border border-border/40 px-3 py-2 text-sm bg-card transition-smooth focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    value={filterDuration}
-                    onChange={(e) => setFilterDuration(e.target.value)}
-                  >
-                    <option value="all">All Durations</option>
-                    <option value="full-day">Full-day</option>
-                    <option value="half-day">Half-day</option>
-                  </select>
-                  <select
-                    aria-label="Filter Category"
-                    className="rounded-lg border border-border/40 px-3 py-2 text-sm bg-card transition-smooth focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    value={filterCategory}
-                    onChange={(e) => setFilterCategory(e.target.value)}
-                  >
-                    <option value="all">All Categories</option>
-                    <option value="sick">Sick</option>
-                    <option value="vacation">Vacation</option>
-                    <option value="personal">Personal</option>
-                    <option value="other">Other</option>
-                  </select>
-                  <select
-                    aria-label="Sort Requests"
-                    className="rounded-lg border border-border/40 px-3 py-2 text-sm bg-card transition-smooth focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    value={sortLeavesBy}
-                    onChange={(e) => setSortLeavesBy(e.target.value)}
-                  >
-                    <option value="applied_desc">Sort by Applied (newest)</option>
-                    <option value="applied_asc">Sort by Applied (oldest)</option>
-                    <option value="from_desc">Sort by From Date (newest)</option>
-                    <option value="from_asc">Sort by From Date (oldest)</option>
-                    <option value="user_asc">Sort by Employee (A→Z)</option>
-                    <option value="user_desc">Sort by Employee (Z→A)</option>
-                  </select>
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
+                    <SelectTrigger
+                      aria-label="Filter Status"
+                      className="rounded-lg border border-border/40 w-full px-3 py-2 text-sm bg-card transition-smooth focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    >
+                      <SelectValue placeholder="Filter by Status" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border border-border/40">
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={filterDuration} onValueChange={setFilterDuration}>
+                    <SelectTrigger
+                      aria-label="Filter Duration"
+                      className="rounded-lg border border-border/40 w-full px-3 py-2 text-sm bg-card transition-smooth focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    >
+                      <SelectValue placeholder="Filter by Duration" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Durations</SelectItem>
+                      <SelectItem value="full-day">Full-day</SelectItem>
+                      <SelectItem value="half-day">Half-day</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={filterCategory} onValueChange={setFilterCategory}>
+                    <SelectTrigger
+                      aria-label="Filter Category"
+                      className="rounded-lg border border-border/40 w-full px-3 py-2 text-sm bg-card transition-smooth focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    >
+                      <SelectValue placeholder="Filter by Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      <SelectItem value="sick">Sick</SelectItem>
+                      <SelectItem value="vacation">Vacation</SelectItem>
+                      <SelectItem value="personal">Personal</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                   </Select> 
+                  <Select value={sortLeavesBy} onValueChange={setSortLeavesBy}>
+                    <SelectTrigger
+                      aria-label="Sort Requests"
+                      className="rounded-lg border border-border/40 w-full px-3 py-2 text-sm bg-card transition-smooth focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    >
+                      <SelectValue placeholder="Sort by Applied (newest)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="applied_desc">Sort by Applied (newest)</SelectItem>
+                      <SelectItem value="applied_asc">Sort by Applied (oldest)</SelectItem>
+                      <SelectItem value="from_desc">Sort by From Date (newest)</SelectItem>
+                      <SelectItem value="from_asc">Sort by From Date (oldest)</SelectItem>
+                      <SelectItem value="user_asc">Sort by Employee (A→Z)</SelectItem>
+                      <SelectItem value="user_desc">Sort by Employee (Z→A)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
 
                 {/* Requests Table */}
                 <div className="overflow-x-auto border border-border/40 rounded-lg">
@@ -542,6 +608,7 @@ export default function AdminLeavesPage() {
                         <TableHead className="font-semibold text-foreground">Approved</TableHead>
                         <TableHead className="font-semibold text-foreground">Status</TableHead>
                         <TableHead className="font-semibold text-foreground">Reason</TableHead>
+                        <TableHead className="font-semibold text-foreground">Document</TableHead>
                         <TableHead className="font-semibold text-foreground">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -557,7 +624,7 @@ export default function AdminLeavesPage() {
                         .filter((l) =>
                           search
                             ? l.reason?.toLowerCase().includes(search.toLowerCase()) ||
-                              l.user_id?.toLowerCase().includes(search.toLowerCase())
+                            l.user_id?.toLowerCase().includes(search.toLowerCase())
                             : true,
                         )
                         .sort((a, b) => {
@@ -615,21 +682,47 @@ export default function AdminLeavesPage() {
                             </TableCell>
                             <TableCell className="text-sm">
                               <span
-                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                  l.status === "pending"
+                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${l.status === "pending"
                                     ? "bg-orange-500 text-white"
                                     : l.status === "approved"
                                       ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
                                       : l.status === "rejected"
                                         ? "bg-destructive/20 dark:bg-red-500 dark:text-white text-destructive"
                                         : "bg-muted text-muted-foreground"
-                                }`}
+                                  }`}
                               >
                                 {l.status}
                               </span>
                             </TableCell>
                             <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
                               {l.reason ?? "-"}
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {l.document_url ? (
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center gap-1 hover:underline"
+                                  onClick={() => {
+                                    const p = deriveStoragePath(l)
+                                    if (!p) return
+                                    if (isImagePath(p)) {
+                                      setPreviewPath(p)
+                                      setPreviewName(p.split("/").pop() || "Document")
+                                      setPreviewSrc(`/api/admin/leave-doc?path=${encodeURIComponent(p)}`)
+                                      setPreviewOpen(true)
+                                    } else {
+                                      fetchSignedUrl(p).then((u) => {
+                                        if (u) window.open(u, "_blank", "noopener")
+                                      })
+                                    }
+                                  }}
+                                >
+                                  <FileText className="w-4 h-4" />
+                                  Document
+                                </button>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
                             </TableCell>
                             <TableCell className="space-x-2">
                               <Button
@@ -719,7 +812,25 @@ export default function AdminLeavesPage() {
             </div>
           </div>
         </DialogContent>
-  </Dialog>
+      </Dialog>
+      {/* Preview Dialog */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="sm:max-w-[820px]">
+          <DialogHeader className="p-4 border-b border-border/40 flex flex-row items-center justify-between">
+            <DialogTitle className="text-lg font-medium">{previewName || "Document"}</DialogTitle>
+            <Button variant="ghost" size="icon" asChild>
+              <a href={previewSrc || "#"} download={previewName || "document"} target="_blank" rel="noopener noreferrer">
+                <Download className="h-5 w-5" />
+              </a>
+            </Button>
+          </DialogHeader>
+          {previewSrc && (
+            <div className="w-full max-h-[75vh] overflow-auto">
+              <img src={previewSrc} alt={previewName || "Document"} className="w-full h-auto rounded-md" />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -259,8 +259,8 @@ export default function LoginPage() {
                   {activeTab === "admin" && (
                     <motion.div
                       layoutId="active-pill"
-                      className="absolute inset-0 bg-white 
-                      dark:bg-white/20 
+                      className="absolute inset-0  
+                      bg-white/50 
                       bg-black/20
                       rounded-lg -z-10"
                       initial={false}

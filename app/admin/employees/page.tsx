@@ -37,7 +37,7 @@ export default function EmployeesPage() {
     type: "fulltime",
     password: "",
   })
-  const [formData, setFormData] = useState({ fullName: "", email: "", password: "", workType: "Full-time" })
+  // const [formData, setFormData] = useState({ fullName: "", email: "", password: "", workType: "Full-time" })
   const [showPassword, setShowPassword] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
@@ -214,6 +214,7 @@ export default function EmployeesPage() {
     }
   }
 
+  
   const handleAddEmployee = async () => {
     try {
       const name = newEmployee.name.trim()
@@ -279,7 +280,7 @@ export default function EmployeesPage() {
       }
 
       toast({ title: "Success", description: "Employee account created" })
-      setOpen(false)
+      setIsAddDialogOpen(false)  // CHANGED THIS LINE
       setNewEmployee({ name: "", email: "", type: "fulltime", password: "" })
       fetchEmployeesPage(page, pageSize)
     } catch (error: any) {
@@ -290,7 +291,6 @@ export default function EmployeesPage() {
         title: isAbort ? "Network timeout" : "Network error",
         description: isAbort ? "Request timed out. Please try again." : (error?.message || "Unexpected error occurred"),
       })
-      // Form data is preserved by not clearing state here
     }
   }
 
@@ -433,30 +433,31 @@ export default function EmployeesPage() {
                   <DialogTitle className="text-[26px] text-black dark:text-white tracking-tight">Add New Employee</DialogTitle>
                   <DialogDescription className="text-[15px] text-black/60 dark:text-white/60">Enter the details of the new employee.</DialogDescription>
                 </DialogHeader>
+               
                 <form className="space-y-4 mt-6">
                   <div className="space-y-2.5">
                     <Label htmlFor="fullName" className="text-[13px] text-black/70 dark:text-white/70 pl-1">Full Name</Label>
                     <Input
                       id="fullName"
                       placeholder="John Doe"
-                      value={formData.fullName}
-                      onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                      value={newEmployee.name}
+                      onChange={(e) => setNewEmployee({ ...newEmployee, name: e.target.value })}
                       className="h-[50px] backdrop-blur-xl bg-black/[0.04] dark:bg-white/[0.08] border border-black/[0.08] dark:border-white/[0.15] rounded-[14px] px-4 transition-all duration-200 focus:bg-black/[0.06] dark:focus:bg-white/[0.12] focus:border-black/[0.15] dark:focus:border-white/[0.25] text-[15px] text-black dark:text-white placeholder:text-black/40 dark:placeholder:text-white/40 shadow-sm"
                     />
                   </div>
-                  
+
                   <div className="space-y-2.5">
                     <Label htmlFor="email" className="text-[13px] text-black/70 dark:text-white/70 pl-1">Email</Label>
                     <Input
                       id="email"
                       type="email"
                       placeholder="john@example.com"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      value={newEmployee.email}
+                      onChange={(e) => setNewEmployee({ ...newEmployee, email: e.target.value })}
                       className="h-[50px] backdrop-blur-xl bg-black/[0.04] dark:bg-white/[0.08] border border-black/[0.08] dark:border-white/[0.15] rounded-[14px] px-4 transition-all duration-200 focus:bg-black/[0.06] dark:focus:bg-white/[0.12] focus:border-black/[0.15] dark:focus:border-white/[0.25] text-[15px] text-black dark:text-white placeholder:text-black/40 dark:placeholder:text-white/40 shadow-sm"
                     />
                   </div>
-                  
+
                   <div className="space-y-2.5">
                     <Label htmlFor="password" className="text-[13px] text-black/70 dark:text-white/70 pl-1">Password</Label>
                     <div className="relative">
@@ -464,8 +465,8 @@ export default function EmployeesPage() {
                         id="password"
                         type={showPassword ? "text" : "password"}
                         placeholder="Set an initial password"
-                        value={formData.password}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        value={newEmployee.password}
+                        onChange={(e) => setNewEmployee({ ...newEmployee, password: e.target.value })}
                         className="h-[50px] pr-12 backdrop-blur-xl bg-black/[0.04] dark:bg-white/[0.08] border border-black/[0.08] dark:border-white/[0.15] rounded-[14px] px-4 transition-all duration-200 focus:bg-black/[0.06] dark:focus:bg-white/[0.12] focus:border-black/[0.15] dark:focus:border-white/[0.25] text-[15px] text-black dark:text-white placeholder:text-black/40 dark:placeholder:text-white/40 shadow-sm"
                       />
                       <button
@@ -477,24 +478,24 @@ export default function EmployeesPage() {
                       </button>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2.5">
                     <Label htmlFor="workType" className="text-[13px] text-black/70 dark:text-white/70 pl-1">Work Type</Label>
                     <Select
-                      value={formData.workType}
-                      onValueChange={(value) => setFormData({ ...formData, workType: value })}
+                      value={newEmployee.type}
+                      onValueChange={(value) => setNewEmployee({ ...newEmployee, type: value })}
                     >
                       <SelectTrigger className="h-[50px] backdrop-blur-xl bg-black/[0.04] dark:bg-white/[0.08] border border-black/[0.08] dark:border-white/[0.15] rounded-[14px] px-4 transition-all duration-200 focus:bg-black/[0.06] dark:focus:bg-white/[0.12] focus:border-black/[0.15] dark:focus:border-white/[0.25] text-[15px] text-black dark:text-white shadow-sm">
                         <SelectValue placeholder="Select work type" />
                       </SelectTrigger>
                       <SelectContent className="backdrop-blur-[80px] bg-white/90 dark:bg-black/90 border border-white/40 dark:border-white/[0.15] rounded-[18px] shadow-[0_20px_60px_rgba(0,0,0,0.35)] p-1.5">
-                        <SelectItem value="Full-time" className="text-[15px] text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10 rounded-[12px] my-0.5 px-3 py-2.5 cursor-pointer transition-all duration-150">Full-time</SelectItem>
-                        <SelectItem value="Intern (Working)" className="text-[15px] text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10 rounded-[12px] my-0.5 px-3 py-2.5 cursor-pointer transition-all duration-150">Intern (Working)</SelectItem>
-                        <SelectItem value="Intern (Learning)" className="text-[15px] text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10 rounded-[12px] my-0.5 px-3 py-2.5 cursor-pointer transition-all duration-150">Intern (Learning)</SelectItem>
+                        <SelectItem value="fulltime" className="text-[15px] text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10 rounded-[12px] my-0.5 px-3 py-2.5 cursor-pointer transition-all duration-150">Full-time</SelectItem>
+                        <SelectItem value="intern1" className="text-[15px] text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10 rounded-[12px] my-0.5 px-3 py-2.5 cursor-pointer transition-all duration-150">Intern (Working)</SelectItem>
+                        <SelectItem value="intern2" className="text-[15px] text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10 rounded-[12px] my-0.5 px-3 py-2.5 cursor-pointer transition-all duration-150">Intern (Learning)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  
+
                   <Button
                     type="submit"
                     className="w-full h-[52px] rounded-[16px] text-white text-[16px] font-medium border-0 transition-all duration-300 active:scale-[0.97] hover:scale-[1.01] mt-6 shadow-[0_8px_24px_rgba(34,118,49,0.4)] hover:shadow-[0_12px_32px_rgba(34,118,49,0.5)]"
@@ -503,8 +504,7 @@ export default function EmployeesPage() {
                     }}
                     onClick={(e) => {
                       e.preventDefault();
-                      // UI-only: close dialog without submitting to backend
-                      setIsAddDialogOpen(false);
+                      handleAddEmployee();
                     }}
                   >
                     Add Employee
@@ -525,7 +525,7 @@ export default function EmployeesPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onBlur={() => {
-                if (searchTerm.trim() === "") return; 
+                if (searchTerm.trim() === "") return;
 
                 setSearchQuery(searchTerm);
                 fetchEmployeesPage(1, pageSize, searchTerm);
@@ -621,39 +621,63 @@ export default function EmployeesPage() {
         </div>
         {/* Removed alternative list view; grid card view remains */}
         <Dialog open={resetOpen} onOpenChange={setResetOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Reset Password</DialogTitle>
-              <DialogDescription>Enter a new strong password for this employee.</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-2">
-              <Label htmlFor="reset-password">New Password</Label>
-              <Input
-                id="reset-password"
-                type="password"
-                value={resetNewPassword}
-                onChange={(e) => setResetNewPassword(e.target.value)}
-                placeholder="Minimum 8 characters"
-              />
+          <DialogContent className="p-8 sm:max-w-[440px] backdrop-blur-[80px] bg-white/80 dark:bg-black/60 border border-white/40 dark:border-white/[0.15] rounded-[28px] shadow-[0_20px_60px_rgba(0,0,0,0.35),0_0_1px_rgba(255,255,255,0.5)_inset] p-0 overflow-hidden">
+            <div className="p-8">
+              <DialogHeader className='space-y-2'>
+
+                <DialogTitle className="text-[26px] text-black dark:text-white tracking-tight">Reset Password</DialogTitle>
+                <DialogDescription className="text-[15px] text-black/60 dark:text-white/60">
+                  Set a new password for <span className="font-semibold text-black dark:text-white">{employees.find(e => e.id === resetUserId)?.name}</span>.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2 mt-6">
+                <Label htmlFor="reset-password">New Password</Label>
+                <Input
+                  id="reset-password"
+                  type="password"
+                  value={resetNewPassword}
+                  onChange={(e) => setResetNewPassword(e.target.value)}
+                  placeholder="Minimum 8 characters"
+                  className="p-5 text-center"
+                />
+
+              </div>
+              <DialogFooter>
+                {/* <Button   variant="outline" onClick={() => setResetOpen(false)}>Cancel</Button> */}
+                <Button
+                  className="w-full h-[52px] rounded-[16px] text-white text-[16px] font-medium border-0 transition-all duration-300 active:scale-[0.97] hover:scale-[1.01] mt-6 shadow-[0_8px_24px_rgba(34,118,49,0.4)] hover:shadow-[0_12px_32px_rgba(34,118,49,0.5)]"
+                  style={{
+                    background: 'linear-gradient(180deg, #227631 0%, #3FA740 100%)',
+                  }}
+                  onClick={handleResetPassword}>Reset Password</Button>
+              </DialogFooter>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setResetOpen(false)}>Cancel</Button>
-              <Button onClick={handleResetPassword}>Save</Button>
-            </DialogFooter>
           </DialogContent>
         </Dialog>
         <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Delete Employee</DialogTitle>
-              <DialogDescription>
-                Are you sure you want to delete this employee? This action cannot be undone.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
-              <Button variant="destructive" onClick={handleDeleteEmployee}>Delete</Button>
-            </DialogFooter>
+          <DialogContent className="sm:max-w-[440px] backdrop-blur-[80px] bg-white/80 dark:bg-black/60 border border-white/40 dark:border-white/[0.15] rounded-[28px] shadow-[0_20px_60px_rgba(0,0,0,0.35),0_0_1px_rgba(255,255,255,0.5)_inset] p-0 overflow-hidden">
+            <div className="p-8">
+              <DialogHeader className="space-y-2">
+                <DialogTitle className="text-[26px] text-black dark:text-white tracking-tight">Delete Employee</DialogTitle>
+                <DialogDescription className="text-[15px] text-black/60 dark:text-white/60">
+                  Are you sure you want to delete <span className="font-medium text-black dark:text-white">{employees.find(e => e.id === deleteUserId)?.name}</span>? This action cannot be undone.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex gap-3 mt-8">
+                <Button
+                  className="flex-1 h-[52px] rounded-[16px] text-white text-[16px] font-medium border-0 transition-all duration-300 active:scale-[0.97] hover:scale-[1.01] shadow-[0_8px_24px_rgba(220,38,38,0.4)] hover:shadow-[0_12px_32px_rgba(220,38,38,0.5)] bg-red-600 hover:bg-red-700"
+                  onClick={handleDeleteEmployee}
+                >
+                  Delete
+                </Button>
+                <Button
+                  className="flex-1 h-[52px] rounded-[16px] text-black dark:text-white text-[16px] font-medium backdrop-blur-xl bg-black/[0.04] dark:bg-white/[0.08] border border-black/[0.08] dark:border-white/[0.15] transition-all duration-300 active:scale-[0.97] hover:scale-[1.01] hover:bg-black/[0.08] dark:hover:bg-white/[0.12] shadow-sm"
+                  onClick={() => setDeleteOpen(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
         <Dialog open={editOpen} onOpenChange={setEditOpen}>

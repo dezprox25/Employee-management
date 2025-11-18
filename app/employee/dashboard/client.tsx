@@ -621,29 +621,40 @@ export default function EmployeeDashboardClient() {
       <SidebarPanel />
 
       <Dialog open={lateDialogOpen} onOpenChange={setLateDialogOpen}>
-        <DialogContent>
+        <DialogContent className="backdrop-blur-[60px] bg-white/90 dark:bg-black/90 border border-white/30 dark:border-white/20 rounded-[32px] p-8 shadow-2xl max-w-lg">
           <DialogHeader>
-            <DialogTitle>Late punch-in reason</DialogTitle>
+            <DialogTitle className="text-2xl text-ash-900 dark:text-white mb-2">Late Arrival</DialogTitle>
+            <p className="text-sm text-ash-500 dark:text-dark-400">
+              You're arriving after 10:05 AM. Please provide a reason.
+            </p>
           </DialogHeader>
-          <div className="space-y-4">
-            {/* <select
-              value={lateReasonPreset}
-              onChange={(e) => setLateReasonPreset(e.target.value)}
-              className="w-full rounded-md border p-2"
-            >
-              <option value="">Select a reason</option>
-              {commonLateReasons.map((r) => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </select> */}
-            <Textarea
-              value={lateReason}
-              onChange={(e) => setLateReason(e.target.value)}
-              placeholder="Additional details..."
-            />
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setLateDialogOpen(false)}>Cancel</Button>
-              <Button onClick={submitLate} disabled={!lateReason.trim()}>Submit</Button>
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm text-ash-700 dark:text-dark-300 mb-3">
+                Late punch-in reason <span className="text-red-500">*</span>
+              </label>
+              <Textarea
+                className="w-full min-h-[120px] px-4 py-3 bg-white/80 dark:bg-black/80 backdrop-blur-sm border border-ash-200 dark:border-dark-700 rounded-xl text-ash-900 dark:text-white placeholder:text-ash-400 dark:placeholder:text-dark-500 focus:outline-none focus:ring-2 focus:ring-[#3FA740]/50 resize-none"
+                placeholder="Please provide details..."
+                value={lateReason}
+                onChange={(e) => setLateReason(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setLateDialogOpen(false)}
+                className="flex-1 h-12 rounded-xl bg-white/80 dark:bg-black/80 backdrop-blur-sm text-ash-900 dark:text-white border border-ash-200 dark:border-dark-700 hover:bg-white dark:hover:bg-black/60 transition-all"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={submitLate}
+                disabled={!lateReason.trim()}
+                className="flex-1 h-12 rounded-xl bg-gradient-to-r from-[#227631] to-[#3FA740] text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Submit
+              </Button>
             </div>
           </div>
         </DialogContent>

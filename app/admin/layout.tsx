@@ -3,6 +3,7 @@ import { ReactNode, useMemo, Suspense } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { LayoutDashboard, Users, CalendarDays, BarChart3, LogOut } from "lucide-react"
 import Image from "next/image"
+
 import { createClient } from "@/lib/supabase/client"
 // import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler"
 // import { cn } from "@/lib/utils"
@@ -12,6 +13,7 @@ interface AdminSidebarProps {
   currentPage: string;
   handleLogout: () => void;
 }
+
 
 function AdminSidebar({ onNavigate, currentPage, handleLogout }: AdminSidebarProps) {
   const menuItems = [

@@ -47,6 +47,10 @@ export default function LeavesPage() {
   const [open, setOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewPath, setPreviewPath] = useState<string | null>(null)
+  const [previewName, setPreviewName] = useState<string | null>(null)
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null)
   const [filter, setFilter] = useState<"all" | "pending" | "approved" | "rejected" | "cancelled">("all")
   const [newLeave, setNewLeave] = useState({
     from_date: "",
@@ -180,34 +184,32 @@ export default function LeavesPage() {
 
   const sanitizeReason = (reason: string) => reason.replace(/[<>]/g, "").trim()
 
-  const uploadDocument = async (file: File, userId: string): Promise<string | null> => {
+  const uploadDocument = async (file: File): Promise<string | null> => {
     try {
       setUploading(true)
-      const fileExt = file.name.split(".").pop()
-      const fileName = `leave-${Date.now()}.${fileExt}`
-      const filePath = `${userId}/${fileName}`
-      // Prefer leave_docs bucket; fallback to documents
-      const tryUpload = async (bucket: string) => {
-        const { data, error } = await supabase.storage.from(bucket).upload(filePath, file, {
-          cacheControl: "3600",
-          upsert: false,
-        })
-        if (error) throw error
-        const { data: urlData } = await supabase.storage.from(bucket).getPublicUrl(data.path)
-        return urlData?.publicUrl ?? null
-      }
-      try {
-        return await tryUpload("leave_docs")
-      } catch (e) {
-        return await tryUpload("documents")
-      }
-    } catch (error) {
-      console.error("Document upload error:", error)
-      toast({ variant: "destructive", title: "Upload failed", description: "Could not upload supporting document" })
+      const form = new FormData()
+      form.append("file", file)
+      const res = await fetch("/api/employee/upload-leave-doc", { method: "POST", body: form })
+      if (!res.ok) return null
+      const json = await res.json().catch(() => null)
+      return json?.path || null
+    } catch {
       return null
     } finally {
       setUploading(false)
     }
+  }
+
+  const isImagePath = (path: string) => /\.(png|jpg|jpeg|webp|gif)$/i.test(path)
+  const deriveStoragePath = (l: Leave) => {
+    const raw = (l.document_url || "").trim()
+    if (!raw) return null
+    if (/^https?:\/\//i.test(raw)) {
+      const m = raw.match(/leave_docs\/(.+)$/)
+      return m ? m[1] : null
+    }
+    if (raw.includes("/")) return raw
+    return `${l.user_id}/${raw}`
   }
 
   const handleApplyLeave = async () => {
@@ -226,7 +228,7 @@ export default function LeavesPage() {
         return
       }
 
-      const docUrl = newLeave.document ? await uploadDocument(newLeave.document, user.id) : null
+      const docUrl = newLeave.document ? await uploadDocument(newLeave.document) : null
 
       const { error } = await supabase.from("leaves").insert({
         user_id: user.id,
@@ -362,9 +364,24 @@ export default function LeavesPage() {
               {leave.document_url ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <FileText className="h-4 w-4" />
-                  <a href={leave.document_url} target="_blank" rel="noreferrer" className="hover:underline">
+                  <button
+                    type="button"
+                    className="hover:underline"
+                    onClick={() => {
+                      const p = deriveStoragePath(leave)
+                      if (!p) return
+                      if (isImagePath(p)) {
+                        setPreviewPath(p)
+                        setPreviewName(p.split("/").pop() || "Document")
+                        setPreviewSrc(`/api/employee/leave-doc?path=${encodeURIComponent(p)}`)
+                        setPreviewOpen(true)
+                      } else {
+                        window.open(`/api/employee/leave-doc?path=${encodeURIComponent(p)}`, "_blank", "noopener")
+                      }
+                    }}
+                  >
                     Document
-                  </a>
+                  </button>
                 </div>
               ) : null}
 
@@ -434,58 +451,152 @@ export default function LeavesPage() {
               <RotateCcw className="w-4 h-4 mr-2" /> Refresh
             </Button>
           </div>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle className="text-xl">Apply for Leave</DialogTitle>
-            </DialogHeader>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="from_date" className="text-sm">From Date</Label>
-                <Input id="from_date" type="date"   className="[color-scheme:light] dark:[color-scheme:dark]" value={newLeave.from_date} onChange={(e) => setNewLeave({ ...newLeave, from_date: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="to_date" className="text-sm">To Date</Label>
-                <Input id="to_date" type="date"   className="[color-scheme:light] dark:[color-scheme:dark]"  value={newLeave.to_date} onChange={(e) => setNewLeave({ ...newLeave, to_date: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="category" className="text-sm">Leave Type</Label>
-                <Select value={newLeave.category} onValueChange={(val) => setNewLeave({ ...newLeave, category: val as Leave["category"] })}>
-                  <SelectTrigger id="category">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sick">Sick</SelectItem>
-                    <SelectItem value="vacation">Vacation</SelectItem>
-                    <SelectItem value="personal">Personal</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="duration" className="text-sm">Duration</Label>
-                <Select value={newLeave.duration} onValueChange={(d) => setNewLeave({ ...newLeave, duration: d as Leave["duration"] })}>
-                  <SelectTrigger id="duration">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="full-day">Full Day</SelectItem>
-                    <SelectItem value="half-day">Half Day</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="md:col-span-2 space-y-2">
-                <Label htmlFor="reason" className="text-sm">Reason</Label>
-                <Textarea id="reason" value={newLeave.reason} onChange={(e) => setNewLeave({ ...newLeave, reason: e.target.value })} placeholder="Please provide a reason for your leave..." />
-              </div>
-              <div className="md:col-span-2 space-y-2">
-                <Label htmlFor="document" className="text-sm">Supporting Document (optional)</Label>
-                <Input id="document" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={(e) => setNewLeave({ ...newLeave, document: e.target.files?.[0] ?? null })} />
+        
+          <DialogContent className="sm:max-w-[600px] backdrop-blur-[40px] bg-white/80 dark:bg-black/80 border border-ash-200/20 dark:border-white/10 rounded-[24px] p-0 shadow-2xl">
+            <div className="p-8">
+              {/* Header */}
+              <DialogHeader className="mb-8">
+                <DialogTitle className="text-2xl text-ash-900 dark:text-white">Apply for Leave</DialogTitle>
+              </DialogHeader>
+
+              {/* Form */}
+              <div className="space-y-6">
+                {/* Date Fields Row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* From Date */}
+                  <div>
+                    <Label htmlFor="from_date" className="block text-sm text-ash-900 dark:text-white mb-2">
+                      From Date
+                    </Label>
+                    <div className="relative">
+                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-ash-500 dark:text-white/60 pointer-events-none z-10" />
+                      <Input
+                        id="from_date"
+                        type="date"
+                        className="w-full h-12 pl-12 pr-4 bg-white/90 dark:bg-white/5 backdrop-blur-sm border border-ash-300/50 dark:border-white/10 rounded-2xl text-ash-900 dark:text-white placeholder:text-ash-400 dark:placeholder:text-white/30 focus:outline-none focus:border-[#3FA740] focus:ring-2 focus:ring-[#3FA740]/20 transition-all cursor-pointer hover:border-ash-400 dark:hover:border-white/20 [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0"
+                        value={newLeave.from_date}
+                        onChange={(e) => setNewLeave({ ...newLeave, from_date: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  {/* To Date */}
+                  <div>
+                    <Label htmlFor="to_date" className="block text-sm text-ash-900 dark:text-white mb-2">
+                      To Date
+                    </Label>
+                    <div className="relative">
+                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-ash-500 dark:text-white/60 pointer-events-none z-10" />
+                      <Input
+                        id="to_date"
+                        type="date"
+                        className="w-full h-12 pl-12 pr-4 bg-white/90 dark:bg-white/5 backdrop-blur-sm border border-ash-300/50 dark:border-white/10 rounded-2xl text-ash-900 dark:text-white placeholder:text-ash-400 dark:placeholder:text-white/30 focus:outline-none focus:border-[#3FA740] focus:ring-2 focus:ring-[#3FA740]/20 transition-all cursor-pointer hover:border-ash-400 dark:hover:border-white/20 [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0"
+                        value={newLeave.to_date}
+                        onChange={(e) => setNewLeave({ ...newLeave, to_date: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Leave Type and Duration Row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Leave Type */}
+                  <div>
+                    <Label htmlFor="category" className="block text-sm text-ash-900 dark:text-white mb-2">
+                      Leave Type
+                    </Label>
+                    <Select value={newLeave.category} onValueChange={(val) => setNewLeave({ ...newLeave, category: val as Leave["category"] })}>
+                      <SelectTrigger
+                        id="category"
+                        className="w-full h-12 px-4 bg-white/90 dark:bg-white/5 backdrop-blur-sm border border-ash-300/50 dark:border-white/10 rounded-2xl text-ash-900 dark:text-white focus:outline-none focus:border-[#3FA740] focus:ring-2 focus:ring-[#3FA740]/20 transition-all hover:border-ash-400 dark:hover:border-white/20"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white dark:bg-dark-900 rounded-2xl shadow-xl border border-ash-200/50 dark:border-white/10 overflow-hidden">
+                        <SelectItem value="sick" className="text-ash-900 dark:text-white hover:bg-ash-50 dark:hover:bg-white/5 transition-colors cursor-pointer">Sick</SelectItem>
+                        <SelectItem value="vacation" className="text-ash-900 dark:text-white hover:bg-ash-50 dark:hover:bg-white/5 transition-colors cursor-pointer">Vacation</SelectItem>
+                        <SelectItem value="personal" className="text-ash-900 dark:text-white hover:bg-ash-50 dark:hover:bg-white/5 transition-colors cursor-pointer">Personal</SelectItem>
+                        <SelectItem value="other" className="text-ash-900 dark:text-white hover:bg-ash-50 dark:hover:bg-white/5 transition-colors cursor-pointer">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Duration */}
+                  <div>
+                    <Label htmlFor="duration" className="block text-sm text-ash-900 dark:text-white mb-2">
+                      Duration
+                    </Label>
+                    <Select value={newLeave.duration} onValueChange={(d) => setNewLeave({ ...newLeave, duration: d as Leave["duration"] })}>
+                      <SelectTrigger
+                        id="duration"
+                        className="w-full h-12 px-4 bg-white/90 dark:bg-white/5 backdrop-blur-sm border border-ash-300/50 dark:border-white/10 rounded-2xl text-ash-900 dark:text-white focus:outline-none focus:border-[#3FA740] focus:ring-2 focus:ring-[#3FA740]/20 transition-all hover:border-ash-400 dark:hover:border-white/20"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white dark:bg-dark-900 rounded-2xl shadow-xl border border-ash-200/50 dark:border-white/10 overflow-hidden">
+                        <SelectItem value="full-day" className="text-ash-900 dark:text-white hover:bg-ash-50 dark:hover:bg-white/5 transition-colors cursor-pointer">Full Day</SelectItem>
+                        <SelectItem value="half-day" className="text-ash-900 dark:text-white hover:bg-ash-50 dark:hover:bg-white/5 transition-colors cursor-pointer">Half Day</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Reason */}
+                <div>
+                  <Label htmlFor="reason" className="block text-sm text-ash-900 dark:text-white mb-2">
+                    Reason
+                  </Label>
+                  <Textarea
+                    id="reason"
+                    className="w-full min-h-[120px] px-4 py-3 bg-white/60 dark:bg-white/5 backdrop-blur-sm border border-ash-200/50 dark:border-white/10 rounded-xl text-ash-900 dark:text-white placeholder:text-ash-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-[#3FA740]/50 focus:border-transparent resize-none"
+                    placeholder="Please provide a reason for your leave..."
+                    value={newLeave.reason}
+                    onChange={(e) => setNewLeave({ ...newLeave, reason: e.target.value })}
+                  />
+                </div>
+
+                {/* Supporting Document */}
+                <div>
+                  <Label htmlFor="document" className="block text-sm text-ash-900 dark:text-white mb-2">
+                    Supporting Document (optional)
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="document"
+                      type="file"
+                      accept=".pdf,.png,.jpg,.jpeg,.webp"
+                      className="w-full h-12 px-4 bg-white/60 dark:bg-white/5 backdrop-blur-sm border border-ash-200/50 dark:border-white/10 rounded-xl text-ash-900 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:bg-[#3FA740]/10 file:text-[#3FA740] hover:file:bg-[#3FA740]/20 cursor-pointer hover:bg-white/80 dark:hover:bg-white/10 transition-colors"
+                      onChange={(e) => setNewLeave({ ...newLeave, document: e.target.files?.[0] ?? null })}
+                    />
+                  </div>
+                </div>
+
+                {/* Submit Button */}
+                <Button
+                  onClick={handleApplyLeave}
+                  disabled={submitting || uploading}
+                  className="w-full h-12 rounded-xl bg-gradient-to-r from-[#227631] to-[#3FA740] text-white hover:opacity-90 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {submitting || uploading ? "Submitting..." : "Submit Leave Request"}
+                </Button>
               </div>
             </div>
-            <Button onClick={handleApplyLeave} className="w-full" disabled={submitting || uploading}>{submitting || uploading ? "Submitting..." : "Submit Leave Request"}</Button>
           </DialogContent>
         </Dialog>
       </div>
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="sm:max-w-[680px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl">{previewName || "Document"}</DialogTitle>
+          </DialogHeader>
+          {previewSrc && (
+            <div className="w-full max-h-[70vh] overflow-auto">
+              <img src={previewSrc} alt={previewName || "Document"} className="w-full h-auto rounded-md" />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
         <Card className="p-6">
