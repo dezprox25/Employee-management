@@ -154,7 +154,7 @@ export default function EmployeeAttendancePage() {
       if (res.ok) {
         try {
           localStorage.removeItem("pendingPunchOut")
-        } catch {}
+        } catch { }
         toast({ title: "Logout updated", description: "Your session was auto-closed on last tab close." })
         const {
           data: { user },
@@ -297,7 +297,7 @@ export default function EmployeeAttendancePage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Total Hours</p>
-                  <p className="text-3xl">{totalHours.toFixed(1)}</p>
+                  <p className="text-3xl font-semibold mt-10">{totalHours.toFixed(1)}</p>
                 </div>
                 <Clock className="w-6 h-6 text-muted-foreground" />
               </div>
@@ -306,7 +306,7 @@ export default function EmployeeAttendancePage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Recent Days</p>
-                  <p className="text-3xl">{records.length}</p>
+                  <p className="text-3xl font-semibold mt-10">{records.length}</p>
                 </div>
                 <Calendar className="w-6 h-6 text-muted-foreground" />
               </div>
@@ -315,7 +315,7 @@ export default function EmployeeAttendancePage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Avg Daily</p>
-                  <p className="text-3xl">{avgHours.toFixed(1)}h</p>
+                  <p className="text-3xl font-semibold mt-10">{avgHours.toFixed(1)}h</p>
                 </div>
                 <TrendingUp className="w-6 h-6 text-muted-foreground" />
               </div>
@@ -325,7 +325,7 @@ export default function EmployeeAttendancePage() {
       </div>
 
       <div className="px-6 py-6">
-        <Card className="rounded-[24px]">
+        <Card className="rounded-[24px] p-5">
           <CardHeader className="border-b">
             <CardTitle className="text-2xl">Attendance Logs</CardTitle>
           </CardHeader>
@@ -355,26 +355,25 @@ export default function EmployeeAttendancePage() {
                   </TableHeader>
                   <TableBody>
                     {records.map((r, idx) => (
-                      <TableRow key={r.id} style={{ animationDelay: `${idx * 30}ms` }}>
+                      <TableRow className="" key={r.id} style={{ animationDelay: `${idx * 30}ms` }}>
                         <TableCell className="text-xs sm:text-sm font-medium">{r.date}</TableCell>
-                        <TableCell className="text-xs sm:text-sm text-muted-foreground">
+                        <TableCell className="text-xs sm:text-sm text-muted-foreground ">
                           {formatTimestamp(r.login_time)}
                         </TableCell>
                         <TableCell className="text-xs sm:text-sm text-muted-foreground">
                           {formatTimestamp(r.logout_time)}
                         </TableCell>
                         <TableCell className="text-xs sm:text-sm font-medium">
-                          {formatHours(r.total_hours)} 
+                          {formatHours(r.total_hours)}
                         </TableCell>
                         <TableCell className="text-xs sm:text-sm capitalize">
                           <span
-                            className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                              r.status === "present"
+                            className={`inline-block px-2 py-1 rounded text-xs font-medium ${r.status === "present"
                                 ? "bg-emerald-100 text-emerald-700"
                                 : r.status === "absent"
                                   ? "bg-red-100 text-red-700"
                                   : "bg-gray-100 text-gray-700"
-                            }`}
+                              }`}
                           >
                             {r.status ?? "-"}
                           </span>

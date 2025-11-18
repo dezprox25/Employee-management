@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { Loader2, Search, Filter, TrendingUp, Users, Calendar, AlertCircle, FileText, Download } from "lucide-react"
+import { Loader2, Search, Filter, TrendingUp, Users, Calendar, AlertCircle, FileText, Download, Check,X } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
@@ -369,8 +369,9 @@ export default function AdminLeavesPage() {
         </div>
       </div>
 
-      <div className="mx-auto px-10 py-8 ">
+      <div className="mx-auto w-2/3 px-10 py-8 ">
         {/* Stats Grid */}
+          <h1 className="text-3xl font-semibold pb-5">Leave Management</h1>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 fade-in">
           <Card className="hover-lift dark:bg-[#333335] bg-[#F3F3F3] border-gray-400 border-[#fff] rounded-[30px]">
             <MetricCard
@@ -583,19 +584,6 @@ export default function AdminLeavesPage() {
                     </SelectContent>
                   </Select>
                 </div>
-
-
-
-
-
-
-
-
-
-
-
-
-
                 {/* Requests Table */}
                 <div className="overflow-x-auto border border-border/40 rounded-lg">
                   <Table>
@@ -724,30 +712,26 @@ export default function AdminLeavesPage() {
                                 <span className="text-muted-foreground">-</span>
                               )}
                             </TableCell>
-                            <TableCell className="space-x-2">
+                            <TableCell className="space-x-2 flex">
                               <Button
-                                size="sm"
-                                variant="outline"
                                 disabled={actionLoading}
                                 onClick={() => {
                                   setActionTarget({ id: l.id, type: "approve", leave: l })
                                   setCommentOpen(true)
                                 }}
-                                className="transition-smooth hover:bg-primary/10 hover:text-primary"
+                                className={`w-[36px] h-[36px] rounded-[10px] flex items-center justify-center transition-all duration-200 backdrop-blur-xl bg-green-500/20 dark:bg-green-500/30 border border-green-500/30 hover:bg-green-500/30 dark:hover:bg-green-500/40 active:scale-95 cursor-pointer shadow-[0_2px_8px_rgba(34,197,94,0.25)]`}
                               >
-                                Approve
+                                <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
                               </Button>
                               <Button
-                                size="sm"
-                                variant="destructive"
                                 disabled={actionLoading}
                                 onClick={() => {
                                   setActionTarget({ id: l.id, type: "reject", leave: l })
                                   setCommentOpen(true)
                                 }}
-                                className="transition-smooth"
+                                className={`w-[36px] h-[36px] rounded-[10px] flex items-center justify-center transition-all duration-200 backdrop-blur-xl bg-red-500/20 dark:bg-red-500/30 border border-red-500/30 hover:bg-red-500/30 dark:hover:bg-red-500/40 active:scale-95 cursor-pointer shadow-[0_2px_8px_rgba(239,68,68,0.25)]`}
                               >
-                                Reject
+                                <X className="h-4 w-4 text-red-600 dark:text-red-400" />
                               </Button>
                             </TableCell>
                           </TableRow>

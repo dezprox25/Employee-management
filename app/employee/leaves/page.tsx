@@ -22,6 +22,7 @@ import { StatsGrid } from "@/components/animations/stats-grid"
 import { StatCounter } from "@/components/animations/stat-counter"
 import { PulseButton } from "@/components/animations/pulse-button"
 import { motion } from "motion/react"
+import { DatePicker } from '@/components/ui/date'
 
 interface Leave {
   id: string
@@ -451,7 +452,7 @@ export default function LeavesPage() {
               <RotateCcw className="w-4 h-4 mr-2" /> Refresh
             </Button>
           </div>
-        
+
           <DialogContent className="sm:max-w-[600px] backdrop-blur-[40px] bg-white/80 dark:bg-black/80 border border-ash-200/20 dark:border-white/10 rounded-[24px] p-0 shadow-2xl">
             <div className="p-8">
               {/* Header */}
@@ -469,13 +470,18 @@ export default function LeavesPage() {
                       From Date
                     </Label>
                     <div className="relative">
-                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-ash-500 dark:text-white/60 pointer-events-none z-10" />
-                      <Input
+                      {/* <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-ash-500 dark:text-white/60 pointer-events-none z-10" /> */}
+                      {/* <Input
                         id="from_date"
                         type="date"
                         className="w-full h-12 pl-12 pr-4 bg-white/90 dark:bg-white/5 backdrop-blur-sm border border-ash-300/50 dark:border-white/10 rounded-2xl text-ash-900 dark:text-white placeholder:text-ash-400 dark:placeholder:text-white/30 focus:outline-none focus:border-[#3FA740] focus:ring-2 focus:ring-[#3FA740]/20 transition-all cursor-pointer hover:border-ash-400 dark:hover:border-white/20 [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0"
                         value={newLeave.from_date}
                         onChange={(e) => setNewLeave({ ...newLeave, from_date: e.target.value })}
+                      /> */}
+                       <DatePicker
+                        value={newLeave.from_date}
+                        onChange={(date) => setNewLeave({ ...newLeave, from_date: date })}
+                        placeholder="Select start date"
                       />
                     </div>
                   </div>
@@ -486,14 +492,22 @@ export default function LeavesPage() {
                       To Date
                     </Label>
                     <div className="relative">
-                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-ash-500 dark:text-white/60 pointer-events-none z-10" />
-                      <Input
+                      {/* <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-ash-500 dark:text-white/60 pointer-events-none z-10" /> */}
+
+                      <DatePicker
+                        value={newLeave.to_date}
+                        onChange={(date) => setNewLeave({ ...newLeave, to_date: date })}
+                        placeholder="Select end date"
+                      />
+                      {/* <Input
                         id="to_date"
                         type="date"
                         className="w-full h-12 pl-12 pr-4 bg-white/90 dark:bg-white/5 backdrop-blur-sm border border-ash-300/50 dark:border-white/10 rounded-2xl text-ash-900 dark:text-white placeholder:text-ash-400 dark:placeholder:text-white/30 focus:outline-none focus:border-[#3FA740] focus:ring-2 focus:ring-[#3FA740]/20 transition-all cursor-pointer hover:border-ash-400 dark:hover:border-white/20 [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0"
                         value={newLeave.to_date}
                         onChange={(e) => setNewLeave({ ...newLeave, to_date: e.target.value })}
-                      />
+                      /> */}
+
+
                     </div>
                   </div>
                 </div>
