@@ -255,6 +255,64 @@ export default function EmployeeDashboardClient() {
     }
   }, [userId, isPunchedIn, toast])
 
+  useEffect(() => {
+    if (!userId) return
+    const supabase = createClient()
+    const today = new Date().toISOString().split("T")[0]
+    const channel = supabase
+      .channel(`attendance:${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "attendance", filter: `user_id=eq.${userId}` },
+        (payload: any) => {
+          const row = payload.new
+          if (!row || row.date !== today) return
+          setTodayAttendance(row)
+          const punchedIn = !!(row.login_time && !row.logout_time)
+          setIsPunchedIn(punchedIn)
+          if (punchedIn) {
+            const rec: TimeRecord = { id: crypto.randomUUID(), date: row.date, checkIn: row.login_time }
+            setRecords([rec])
+            setActiveSession(rec) 
+            try { localStorage.setItem("timeRecords", JSON.stringify([rec])) } catch {}
+            toast({ title: "Checked in", description: formatRecordTime(row.login_time) })
+          } else {
+            toast({ title: "Attendance updated" })
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "attendance", filter: `user_id=eq.${userId}` },
+        (payload: any) => {
+          const row = payload.new
+          const oldRow = payload.old
+          if (!row || row.date !== today) return
+          setTodayAttendance(row)
+          const punchedIn = !!(row.login_time && !row.logout_time)
+          setIsPunchedIn(punchedIn)
+          const logoutChanged = !!row.logout_time && oldRow?.logout_time !== row.logout_time
+          const loginChanged = !!row.login_time && oldRow?.login_time !== row.login_time
+          if (logoutChanged) {
+            setRecords((cur) => cur.map((r) => (!r.checkOut ? { ...r, checkOut: row.logout_time } : r)))
+            setActiveSession(null)
+            try { localStorage.removeItem("timeRecords") } catch {}
+            toast({ title: "Checked out", description: formatRecordTime(row.logout_time) })
+          } else if (loginChanged && punchedIn) {
+            const rec: TimeRecord = { id: crypto.randomUUID(), date: row.date, checkIn: row.login_time }
+            setRecords([rec])
+            setActiveSession(rec)
+            try { localStorage.setItem("timeRecords", JSON.stringify([rec])) } catch {}
+            toast({ title: "Checked in", description: formatRecordTime(row.login_time) })
+          } else {
+            toast({ title: "Attendance updated" })
+          }
+        }
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [userId, toast])
+
   // Auto punch-out on tab close
   useEffect(() => {
     if (!isPunchedIn || !userId) return
@@ -305,6 +363,18 @@ export default function EmployeeDashboardClient() {
     }
   }, [isPunchedIn, userId])
 
+  useEffect(() => {
+    const supabase = createClient()
+    const { data } = supabase.auth.onAuthStateChange(async (event: any) => {
+      if (event === "SIGNED_OUT") {
+        await performAutoPunchOut("auth_signout")
+      }
+    })
+    return () => {
+      try { (data as any)?.subscription?.unsubscribe?.() } catch {}
+    }
+  }, [isPunchedIn, userId])
+
   // Check for pending punch-out on mount
   useEffect(() => {
     const checkPendingPunchOut = async () => {
@@ -342,6 +412,33 @@ export default function EmployeeDashboardClient() {
       checkPendingPunchOut()
     }
   }, [loading, toast])
+
+  useEffect(() => {
+    const run = async () => {
+      if (loading || !userId) return
+      const row = todayAttendance
+      if (!row?.login_time || row?.logout_time) return
+      const lastTs = (typeof localStorage !== "undefined" && localStorage.getItem("lastAutoPunchOutTs")) || null
+      const loginAgeMs = Date.now() - new Date(row.login_time).getTime()
+      const thresholdMs = 2 * 60 * 1000
+      if (lastTs && loginAgeMs > thresholdMs) {
+        try {
+          const res = await fetch("/api/employee/auto-punch-out", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ trigger: "rejoin_correction", source: "app_reload" }),
+          })
+          if (res.ok) {
+            try { localStorage.removeItem("lastAutoPunchOutTs") } catch {}
+            toast({ title: "Session corrected" })
+            fetchUserData()
+          }
+        } catch {}
+      }
+    }
+    run()
+  }, [userId, loading, todayAttendance, fetchUserData, toast])
 
   // Work duration timer
   useEffect(() => {
@@ -403,6 +500,37 @@ export default function EmployeeDashboardClient() {
       return `${formattedHours}:${minutes} ${ampm}`
     } catch {
       return isoString
+    }
+  }
+
+  const performAutoPunchOut = async (trigger: string) => {
+    if (!isPunchedIn || !userId || punchOutSentRef.current) return false
+    punchOutSentRef.current = true
+    const nowIso = new Date().toISOString()
+    const payload = JSON.stringify({ trigger, source: "employee_dashboard", timestamp: nowIso })
+    try {
+      if (navigator.sendBeacon) {
+        const sent = navigator.sendBeacon("/api/employee/auto-punch-out", payload)
+        if (!sent) throw new Error("beacon_failed")
+      } else {
+        await fetch("/api/employee/auto-punch-out", {
+          method: "POST",
+          body: payload,
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          keepalive: true,
+        })
+      }
+      setActiveSession(null)
+      setIsPunchedIn(false)
+      try { localStorage.removeItem("timeRecords") } catch {}
+      try { localStorage.setItem("lastAutoPunchOutTs", nowIso) } catch {}
+      toast({ title: "Auto Punch-Out", description: "Checked out on logout" })
+      return true
+    } catch (err) {
+      try { localStorage.setItem("pendingPunchOut", JSON.stringify({ timestamp: nowIso, trigger })) } catch {}
+      toast({ title: "Auto punch-out pending", variant: "destructive" })
+      return false
     }
   }
 
@@ -544,6 +672,8 @@ export default function EmployeeDashboardClient() {
   const handleLogout = async () => {
     const supabase = createClient()
     try {
+      await performAutoPunchOut("logout")
+      await new Promise((r) => setTimeout(r, 100))
       await supabase.auth.signOut()
     } catch { }
     router.replace("/auth/login")
@@ -705,7 +835,7 @@ export default function EmployeeDashboardClient() {
                 )}
               </Card>
 
-              <div className="hidden gap-6">
+              <div className=" gap-6">
                 <Card className="p-6">
                   <h3 className="mb-6">Leave Balance</h3>
                   <div>

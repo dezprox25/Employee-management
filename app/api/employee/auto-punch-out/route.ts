@@ -69,6 +69,7 @@ export async function POST(req: Request) {
       .from("attendance")
       .update({ logout_time: nowIso, total_hours: totalHours })
       .eq("id", attendance.id)
+      .is("logout_time", null)
 
     if (updErr) {
       console.error("[auto-punch-out] update error", updErr)

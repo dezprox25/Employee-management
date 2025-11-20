@@ -184,6 +184,61 @@ export default function EmployeeAttendancePage() {
   }, [])
 
   useEffect(() => {
+    let channel: any
+    let cancelled = false
+    ;(async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user || cancelled) return
+      channel = supabase
+        .channel(`attendance-realtime-${user.id}`)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "attendance", filter: `user_id=eq.${user.id}` },
+          (payload: any) => {
+            const row = payload.new as any
+            setRecords((cur) => {
+              const idStr = String(row.id)
+              const exists = cur.some((r: any) => String(r.id) === idStr)
+              return exists
+                ? cur.map((r: any) => (String(r.id) === idStr ? { ...r, ...row } : r))
+                : [row as AttendanceRow, ...cur]
+            })
+            setIsPunchedIn(!!(row?.login_time && !row?.logout_time))
+            toast({ title: "Attendance updated", description: row?.login_time ? "Checked in" : "Updated" })
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "attendance", filter: `user_id=eq.${user.id}` },
+          (payload: any) => {
+            const row = payload.new as any
+            const oldRow = payload.old as any
+            setRecords((cur) => {
+              const idStr = String(row.id)
+              const exists = cur.some((r: any) => String(r.id) === idStr)
+              return exists
+                ? cur.map((r: any) => (String(r.id) === idStr ? { ...r, ...row } : r))
+                : [row as AttendanceRow, ...cur]
+            })
+            setIsPunchedIn(!!(row?.login_time && !row?.logout_time))
+            const changedLogout = oldRow?.logout_time !== row?.logout_time && !!row?.logout_time
+            const changedLogin = oldRow?.login_time !== row?.login_time && !!row?.login_time
+            if (changedLogout) toast({ title: "Auto Punch-Out", description: "Logout updated" })
+            else if (changedLogin) toast({ title: "Attendance updated", description: "Login updated" })
+            else toast({ title: "Attendance updated" })
+          }
+        )
+        .subscribe()
+    })()
+    return () => {
+      cancelled = true
+      if (channel) supabase.removeChannel(channel)
+    }
+  }, [])
+
+  useEffect(() => {
     const sendAutoPunchOut = (trigger: string) => {
       try {
         if (unloadSentRef.current) return
