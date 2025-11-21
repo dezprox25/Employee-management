@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, useMotionValue, useTransform, PanInfo } from "motion/react";
 import { ArrowRight } from "lucide-react";
 import { Character3D } from "./Character3D";
@@ -12,8 +12,42 @@ interface SlideToCheckInProps {
 
 export function SlideToCheckIn({ onComplete, disabled }: SlideToCheckInProps) {
   const [isDragging, setIsDragging] = useState(false);
+  const [reduceAnimations, setReduceAnimations] = useState(false);
   const constraintsRef = useRef<HTMLDivElement>(null);
   const x = useMotionValue(0);
+  const rafId = useRef<number | null>(null);
+  const lastLog = useRef<number>(performance.now());
+  const windowSeconds = useRef<{ low: number; high: number }>({ low: 0, high: 0 });
+  useEffect(() => {
+    let last = performance.now();
+    let lowFrames = 0;
+    let highFrames = 0;
+    let secondsAccum = 0;
+    const loop = (t: number) => {
+      const dt = t - last;
+      last = t;
+      const fps = 1000 / Math.max(1, dt);
+      secondsAccum += dt;
+      if (fps < 55) lowFrames++; else highFrames++;
+      if (performance.now() - lastLog.current >= 1000) {
+        const mem = (performance as any).memory;
+        const used = mem ? Math.round(mem.usedJSHeapSize / 1048576) : null;
+        console.debug(`[perf:SlideCheckIn] fps=${fps.toFixed(1)} mem=${used !== null ? used + 'MB' : 'n/a'}`);
+        lastLog.current = performance.now();
+      }
+      if (secondsAccum >= 5000) {
+        windowSeconds.current.low = lowFrames;
+        windowSeconds.current.high = highFrames;
+        setReduceAnimations(lowFrames > highFrames);
+        secondsAccum = 0;
+        lowFrames = 0;
+        highFrames = 0;
+      }
+      rafId.current = requestAnimationFrame(loop);
+    };
+    rafId.current = requestAnimationFrame(loop);
+    return () => { if (rafId.current) cancelAnimationFrame(rafId.current); };
+  }, []);
   
   const background = useTransform(
     x,
@@ -27,6 +61,13 @@ export function SlideToCheckIn({ onComplete, disabled }: SlideToCheckInProps) {
   const officeOpacity = useTransform(x, [150, 300], [0, 1]);
   const officeScale = useTransform(x, [150, 300], [0.7, 1]);
   const characterX = useTransform(x, [0, 300], [0, 200]);
+  const dotColor0 = useTransform(sceneProgress, [0.0, 0.2], ["rgba(255,255,255,0.4)", "rgba(255,255,255,1)"]);
+  const dotColor1 = useTransform(sceneProgress, [0.2, 0.4], ["rgba(255,255,255,0.4)", "rgba(255,255,255,1)"]);
+  const dotColor2 = useTransform(sceneProgress, [0.4, 0.6], ["rgba(255,255,255,0.4)", "rgba(255,255,255,1)"]);
+  const dotColor3 = useTransform(sceneProgress, [0.6, 0.8], ["rgba(255,255,255,0.4)", "rgba(255,255,255,1)"]);
+  const dotColor4 = useTransform(sceneProgress, [0.8, 1.0], ["rgba(255,255,255,0.4)", "rgba(255,255,255,1)"]);
+  const dotColors = [dotColor0, dotColor1, dotColor2, dotColor3, dotColor4];
+  const roadDuration = reduceAnimations ? 3 : 2;
 
   const handleDragEnd = (_: any, info: PanInfo) => {
     setIsDragging(false);
@@ -83,7 +124,7 @@ export function SlideToCheckIn({ onComplete, disabled }: SlideToCheckInProps) {
               strokeDashoffset: [0, -30]
             }}
             transition={{
-              duration: 2,
+              duration: roadDuration,
               repeat: Infinity,
               ease: "linear"
             }}
@@ -173,11 +214,7 @@ export function SlideToCheckIn({ onComplete, disabled }: SlideToCheckInProps) {
               key={i}
               className="w-2 h-2 rounded-full bg-white/40"
               style={{
-                backgroundColor: useTransform(
-                  sceneProgress,
-                  [i * 0.2, (i + 1) * 0.2],
-                  ["rgba(255,255,255,0.4)", "rgba(255,255,255,1)"]
-                )
+                backgroundColor: dotColors[i]
               }}
             />
           ))}

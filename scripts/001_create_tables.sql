@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS public.users (
   used_leaves INTEGER DEFAULT 0,
   created_at TIMESTAMP DEFAULT NOW()
 );
-
+  
 -- Create attendance table
 CREATE TABLE IF NOT EXISTS public.attendance (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
