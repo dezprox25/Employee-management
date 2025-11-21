@@ -63,6 +63,7 @@ export async function GET(req: Request) {
     const sortable = new Set([
       "name",
       "email",
+      "position",
       "type",
       "created_at",
       "work_time_start",

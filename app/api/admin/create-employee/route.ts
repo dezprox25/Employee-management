@@ -7,6 +7,7 @@ const CreateEmployeeSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8).regex(/^(?=.*[A-Za-z])(?=.*\d).+$/, "Password must include letters and numbers"),
   name: z.string().trim().min(1),
+  position: z.string().trim().min(1),
   type: z.enum(["fulltime", "intern1", "intern2"]).default("fulltime"),
 })
 
@@ -34,6 +35,7 @@ export async function POST(req: Request) {
         email: "VALIDATION_EMAIL",
         password: "VALIDATION_PASSWORD",
         name: "VALIDATION_NAME",
+        position: "VALIDATION_POSITION",
         type: "VALIDATION_TYPE",
       }
       return NextResponse.json(
@@ -41,8 +43,9 @@ export async function POST(req: Request) {
         { status: 400 },
       )
     }
-    const { email, password, name, type } = parsed.data
+    const { email, password, name, position, type } = parsed.data
     const trimmedName = name.trim()
+    const trimmedPosition = position.trim()
 
     const auth = await requireAdminAuth(req)
     if (!auth.ok) return auth.response
@@ -73,6 +76,7 @@ export async function POST(req: Request) {
       user_metadata: {
         name: trimmedName,
         role: "employee",
+        position: trimmedPosition,
         type,
         work_time_start: wt.start,
         work_time_end: wt.end,
@@ -110,6 +114,7 @@ export async function POST(req: Request) {
           name: trimmedName,
           email,
           role: "employee",
+          position: trimmedPosition,
           type,
           work_time_start: wt.start,
           work_time_end: wt.end,

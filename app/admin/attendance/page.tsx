@@ -27,7 +27,7 @@ type AttendanceRow = {
   reason: string | null
 }
 
-type EnrichedAttendance = AttendanceRow & { name: string; email: string }
+type EnrichedAttendance = AttendanceRow & { name: string; email: string; position: string | null }
 
 type AttendanceAPIResponse = {
   ok: boolean
@@ -286,10 +286,11 @@ export default function AttendanceReportsPage() {
   }
 
   const exportToCSV = () => {
-    const headers = ["Date", "Employee", "Login Time", "Logout Time", "Total Hours", "Status", "Reason"]
+    const headers = ["Date", "Employee", "Position", "Login Time", "Logout Time", "Total Hours", "Status", "Reason"]
     const rows = filteredRecent.map((record) => [
       record.date,
       record.name,
+      record.position || "-",
       record.login_time || "N/A",
       record.logout_time || "N/A",
       record.total_hours?.toFixed(2) || "N/A",

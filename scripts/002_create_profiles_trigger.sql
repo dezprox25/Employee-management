@@ -2,12 +2,13 @@
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.users (id, name, email, role, type, work_time_start, work_time_end, total_leaves)
+  INSERT INTO public.users (id, name, email, role, position, type, work_time_start, work_time_end, total_leaves)
   VALUES (
     NEW.id,
     COALESCE(NEW.raw_user_meta_data ->> 'name', 'User'),
     NEW.email,
     COALESCE(NEW.raw_user_meta_data ->> 'role', 'employee'),
+    NULLIF(NEW.raw_user_meta_data ->> 'position', '')::TEXT,
     COALESCE(NEW.raw_user_meta_data ->> 'type', 'fulltime'),
     COALESCE((NEW.raw_user_meta_data ->> 'work_time_start')::TIME, '10:00:00'),
     COALESCE((NEW.raw_user_meta_data ->> 'work_time_end')::TIME, '18:00:00'),

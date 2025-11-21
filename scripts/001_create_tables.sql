@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS public.users (
   name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
   role TEXT NOT NULL CHECK (role IN ('admin', 'employee')),
+  position TEXT,
   type TEXT NOT NULL CHECK (type IN ('fulltime', 'intern1', 'intern2')),
   work_time_start TIME NOT NULL,
   work_time_end TIME NOT NULL,

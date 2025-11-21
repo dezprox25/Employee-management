@@ -19,6 +19,7 @@ interface Employee {
   name: string
   password: string
   email: string
+  position?: string | null
   type: string
   work_time_start: string
   work_time_end: string
@@ -34,6 +35,7 @@ export default function EmployeesPage() {
   const [newEmployee, setNewEmployee] = useState({
     name: "",
     email: "",
+    position: "",
     type: "fulltime",
     password: "",
   })
@@ -200,8 +202,12 @@ export default function EmployeesPage() {
   const handleUpdateEmployee = async () => {
     if (!editEmployee?.id) return
     try {
+      if (editEmployee.position !== undefined && String(editEmployee.position).trim() === "") {
+        toast({ variant: "destructive", title: "Invalid input", description: "Position cannot be empty" })
+        return
+      }
       const payload: any = {}
-        ;["name", "email", "type", "work_time_start", "work_time_end", "total_leaves", "used_leaves"].forEach((k) => {
+        ;["name", "email", "position", "type", "work_time_start", "work_time_end", "total_leaves", "used_leaves"].forEach((k) => {
           if ((editEmployee as any)[k] !== undefined) payload[k] = (editEmployee as any)[k]
         })
       await supabase.from("users").update(payload).eq("id", editEmployee.id)
@@ -219,11 +225,12 @@ export default function EmployeesPage() {
     try {
       const name = newEmployee.name.trim()
       const email = newEmployee.email.trim()
+      const position = (newEmployee.position || "").trim()
       const password = newEmployee.password
 
       const emailRegex = /^(?:[a-zA-Z0-9_'^&\-]+(?:\.[a-zA-Z0-9_'^&\-]+)*|"(?:[^"]|\\")+")@(?:(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}|\[(?:\d{1,3}\.){3}\d{1,3}\])$/
-      if (!name || !email || !password) {
-        toast({ variant: "destructive", title: "Missing fields", description: "Please provide name, email, and password" })
+      if (!name || !email || !password || !position) {
+        toast({ variant: "destructive", title: "Missing fields", description: "Please provide name, email, password, and position" })
         return
       }
       if (!emailRegex.test(email)) {
@@ -245,6 +252,7 @@ export default function EmployeesPage() {
           name,
           email,
           password,
+          position,
           type: newEmployee.type,
         }),
         credentials: "include",
@@ -272,6 +280,8 @@ export default function EmployeesPage() {
                   ? "Weak password: use at least 8 characters with letters and numbers."
                   : code === "VALIDATION_NAME"
                     ? "Name is required."
+                    : code === "VALIDATION_POSITION"
+                      ? "Position is required."
                     : code === "VALIDATION_TYPE"
                       ? "Invalid employee type."
                       : data?.error || `Server returned ${res.status}`
@@ -280,8 +290,8 @@ export default function EmployeesPage() {
       }
 
       toast({ title: "Success", description: "Employee account created" })
-      setIsAddDialogOpen(false)  // CHANGED THIS LINE
-      setNewEmployee({ name: "", email: "", type: "fulltime", password: "" })
+      setIsAddDialogOpen(false)
+      setNewEmployee({ name: "", email: "", position: "", type: "fulltime", password: "" })
       fetchEmployeesPage(page, pageSize)
     } catch (error: any) {
       const isAbort = error?.name === "AbortError"
@@ -447,6 +457,17 @@ export default function EmployeesPage() {
                   </div>
 
                   <div className="space-y-2.5">
+                    <Label htmlFor="position" className="text-[13px] text-black/70 dark:text-white/70 pl-1">Position</Label>
+                    <Input
+                      id="position"
+                      placeholder="Enter employee position"
+                      value={newEmployee.position}
+                      onChange={(e) => setNewEmployee({ ...newEmployee, position: e.target.value })}
+                      className="h-[50px] backdrop-blur-xl bg-black/[0.04] dark:bg-white/[0.08] border border-black/[0.08] dark:border-white/[0.15] rounded-[14px] px-4 transition-all duration-200 focus:bg-black/[0.06] dark:focus:bg-white/[0.12] focus:border-black/[0.15] dark:focus:border-white/[0.25] text-[15px] text-black dark:text-white placeholder:text-black/40 dark:placeholder:text-white/40 shadow-sm"
+                    />
+                  </div>
+
+                  <div className="space-y-2.5">
                     <Label htmlFor="email" className="text-[13px] text-black/70 dark:text-white/70 pl-1">Email</Label>
                     <Input
                       id="email"
@@ -571,6 +592,10 @@ export default function EmployeesPage() {
                           ? "Working"
                           : "Learning"}
                     </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Position:</span>
+                    <span className="font-medium">{employee.position || "-"}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Work Hours:</span>
@@ -706,6 +731,16 @@ export default function EmployeesPage() {
                       type="email"
                       value={editEmployee.email ?? ""}
                       onChange={(e) => setEditEmployee({ ...editEmployee, email: e.target.value })}
+                      className="h-[50px] backdrop-blur-xl bg-black/[0.04] dark:bg-white/[0.08] border border-black/[0.08] dark:border-white/[0.15] rounded-[14px] px-4 transition-all duration-200 focus:bg-black/[0.06] dark:focus:bg-white/[0.12] focus:border-black/[0.15] dark:focus:border-white/[0.25] text-[15px] text-black dark:text-white placeholder:text-black/40 dark:placeholder:text-white/40 shadow-sm"
+                    />
+                  </div>
+
+                  <div className="space-y-2.5">
+                    <Label htmlFor="eposition" className="text-[13px] text-black/70 dark:text-white/70 pl-1">Position</Label>
+                    <Input
+                      id="eposition"
+                      value={editEmployee.position ?? ""}
+                      onChange={(e) => setEditEmployee({ ...editEmployee, position: e.target.value })}
                       className="h-[50px] backdrop-blur-xl bg-black/[0.04] dark:bg-white/[0.08] border border-black/[0.08] dark:border-white/[0.15] rounded-[14px] px-4 transition-all duration-200 focus:bg-black/[0.06] dark:focus:bg-white/[0.12] focus:border-black/[0.15] dark:focus:border-white/[0.25] text-[15px] text-black dark:text-white placeholder:text-black/40 dark:placeholder:text-white/40 shadow-sm"
                     />
                   </div>

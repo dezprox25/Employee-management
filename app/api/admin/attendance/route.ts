@@ -18,6 +18,7 @@ type UserRow = {
   name: string | null
   email: string | null
   role: string | null
+  position: string | null
 }
 
 export async function GET(req: Request) {
@@ -74,16 +75,16 @@ export async function GET(req: Request) {
     // Fetch employees for enrichment and totals
     const { data: users, error: usersErr } = await service
       .from("users")
-      .select("id, name, email, role")
+      .select("id, name, email, role, position")
       .in("role", ["employee"])
 
     if (usersErr) {
       return NextResponse.json({ ok: false, error: usersErr.message, code: usersErr.code }, { status: 500 })
     }
-    const byId: Record<string, { name: string; email: string }> = {}
+    const byId: Record<string, { name: string; email: string; position: string | null }> = {}
     const userList: UserRow[] = Array.isArray(users) ? (users as UserRow[]) : []
     for (const u of userList) {
-      byId[u.id] = { name: u.name ?? "", email: u.email ?? "" }
+      byId[u.id] = { name: u.name ?? "", email: u.email ?? "", position: u.position ?? null }
     }
     const totalEmployees = userList.length
 
@@ -103,6 +104,7 @@ export async function GET(req: Request) {
       ...r,
       name: byId[r.user_id]?.name ?? "Unknown",
       email: byId[r.user_id]?.email ?? "",
+      position: byId[r.user_id]?.position ?? null,
     })) || []
 
     const present = todayEnriched.filter((r) => r.status === "present").length
@@ -128,6 +130,7 @@ export async function GET(req: Request) {
       ...r,
       name: byId[r.user_id]?.name ?? "Unknown",
       email: byId[r.user_id]?.email ?? "",
+      position: byId[r.user_id]?.position ?? null,
     })) || []
 
     return NextResponse.json({
