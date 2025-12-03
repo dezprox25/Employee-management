@@ -420,6 +420,10 @@ export default function EmployeeAttendancePage() {
                         </TableCell>
                         <TableCell className="text-xs sm:text-sm font-medium">
                           {formatHours(r.total_hours)}
+                          {/** auto-adjust indicator */}
+                          {((r as any).auto_adjusted) && (
+                            <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/15 text-blue-700">Adjusted</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-xs sm:text-sm capitalize">
                           <span

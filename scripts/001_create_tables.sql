@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS public.attendance (
   reason TEXT,
   total_hours FLOAT,
   status TEXT CHECK (status IN ('present', 'absent', 'late', 'half-day')),
+  auto_adjusted BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT NOW()
 );
 

@@ -476,6 +476,7 @@ export default function EmployeeDashboardClient() {
     }
   }, [searchParams])
 
+  const LATE_GRACE_MINUTES = 10
   const computeStatus = (): "present" | "late" => {
     try {
       if (!userData?.work_time_start) return "present"
@@ -483,12 +484,20 @@ export default function EmployeeDashboardClient() {
       const scheduled = new Date()
       const [h, m] = userData.work_time_start.split(":").map((v) => parseInt(v, 10))
       scheduled.setHours(h || 9, m || 0, 0, 0)
-      const toleranceMinutes = 10
-      return now.getTime() > scheduled.getTime() + toleranceMinutes * 60 * 1000 ? "late" : "present"
+      return now.getTime() > scheduled.getTime() + LATE_GRACE_MINUTES * 60 * 1000 ? "late" : "present"
     } catch {
       return "present"
     }
   }
+
+  const lateThresholdText = useMemo(() => {
+    if (!userData?.work_time_start) return null
+    const now = new Date()
+    const [h, m] = userData.work_time_start.split(":").map((v) => parseInt(v, 10))
+    now.setHours(h || 9, m || 0, 0, 0)
+    now.setMinutes(now.getMinutes() + LATE_GRACE_MINUTES)
+    return formatTime12hFromDate(now)
+  }, [userData])
 
   const formatRecordTime = (isoString: string) => {
     try {
@@ -755,7 +764,7 @@ export default function EmployeeDashboardClient() {
           <DialogHeader>
             <DialogTitle className="text-2xl text-ash-900 dark:text-white mb-2">Late Arrival</DialogTitle>
             <p className="text-sm text-ash-500 dark:text-dark-400">
-              You're arriving after 10:05 AM. Please provide a reason.
+              {`You're arriving after ${lateThresholdText ?? "your scheduled start time"}. Please provide a reason.`}
             </p>
           </DialogHeader>
           <div className="space-y-6">

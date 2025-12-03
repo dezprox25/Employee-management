@@ -27,7 +27,7 @@ type AttendanceRow = {
   reason: string | null
 }
 
-type EnrichedAttendance = AttendanceRow & { name: string; email: string; position: string | null }
+type EnrichedAttendance = AttendanceRow & { name: string; email: string; position: string | null; auto_adjusted?: boolean }
 
 type AttendanceAPIResponse = {
   ok: boolean
@@ -486,6 +486,11 @@ export default function AttendanceReportsPage() {
                                   >
                                     {r.status}
                                   </span>
+                                  {r.auto_adjusted && (
+                                    <span className="inline-flex items-center ml-2 px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/15 text-blue-600 dark:text-blue-400">
+                                      Adjusted
+                                    </span>
+                                  )}
                                 </TableCell>
                               </TableRow>
                             ))
@@ -582,7 +587,12 @@ export default function AttendanceReportsPage() {
                                 <td className="py-3 px-4 text-sm font-medium">{r.name}</td>
                                 <td className="py-3 px-4 text-sm">{fmtTime(r.login_time)}</td>
                                 <td className="py-3 px-4 text-sm">{fmtTime(r.logout_time)}</td>
-                                <td className="py-3 px-4 text-sm">{formatHours(r.total_hours)}</td>
+                                <td className="py-3 px-4 text-sm">
+                                  {formatHours(r.total_hours)}
+                                  {r.auto_adjusted && (
+                                    <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/15 text-blue-600 dark:text-blue-400">Adjusted</span>
+                                  )}
+                                </td>
                                 <td className="py-3 px-4">
                                   <Badge
                                     className={`${r.status === "present"
