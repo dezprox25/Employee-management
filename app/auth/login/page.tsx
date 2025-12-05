@@ -19,7 +19,7 @@ export default function LoginPage() {
   const [employeePassword, setEmployeePassword] = useState("");
   const [activeTab, setActiveTab] = useState("employee");
   const [isDarkMode, setIsDarkMode] = useState(true);
-  const [enableSplash, setEnableSplash] = useState(true);
+  const [enableSplash, setEnableSplash] = useState(false);
   const [showAdminPassword, setShowAdminPassword] = useState(false);
   const [showEmployeePassword, setShowEmployeePassword] = useState(false);
   const [isAdminLoading, setIsAdminLoading] = useState(false);
@@ -67,8 +67,9 @@ export default function LoginPage() {
           localStorage.removeItem(lockKey);
           
           toast({
-            title: "Login Successful",
-            description: "Welcome back, Admin!",
+            title: <span className="dark:text-white">Login Successful</span>,
+            description: <span className="dark:text-white">Welcome back, Admin!</span>,
+            className: isDarkMode ? "dark" : "",
           });
           
           router.push("/admin/dashboard");
@@ -91,8 +92,9 @@ export default function LoginPage() {
       
       toast({
         variant: "destructive",
-        title: "Login Failed",
-        description: error instanceof Error ? error.message : "An error occurred",
+        title: <span className="dark:text-white">Login Failed</span>,
+        description: <span className="dark:text-white">{error instanceof Error ? error.message : "An error occurred"}</span>,
+        className: isDarkMode ? "dark" : "",
       });
     } finally {
       setIsAdminLoading(false);
@@ -137,8 +139,9 @@ export default function LoginPage() {
         localStorage.removeItem(lockKey);
         
         toast({
-          title: "Login Successful",
-          description: "Welcome back!",
+          title: <span className="dark:text-white">Login Successful</span>,
+          description: <span className="dark:text-white">Welcome back!</span>,
+          className: isDarkMode ? "dark" : "",
         });
 
         if (userData?.role === "admin") {
@@ -161,8 +164,8 @@ export default function LoginPage() {
       
       toast({
         variant: "destructive",
-        title: "Login Failed",
-        description: error instanceof Error ? error.message : "An error occurred",
+        title: <span className="dark:text-white">Login Failed</span>,
+        description: <span className="dark:text-white">{error instanceof Error ? error.message : "An error occurred"}</span>,
       });
     } finally {
       setIsEmployeeLoading(false);

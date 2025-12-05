@@ -242,8 +242,8 @@ export default function EmployeeDashboardClient() {
               localStorage.removeItem("timeRecords")
             } catch { }
             toast({
-              title: "Auto Punch-Out",
-              description: "You have been automatically punched out due to inactivity.",
+              title: <span className="dark:text-white">Auto Punch-Out</span>,
+              description: <span className="dark:text-white">You have been automatically punched out due to inactivity.</span>,
             })
           }
         }
@@ -275,9 +275,9 @@ export default function EmployeeDashboardClient() {
             setRecords([rec])
             setActiveSession(rec) 
             try { localStorage.setItem("timeRecords", JSON.stringify([rec])) } catch {}
-            toast({ title: "Checked in", description: formatRecordTime(row.login_time) })
+            toast({ title: <span className="dark:text-white">Checked in</span>, description: <span className="dark:text-white">{formatRecordTime(row.login_time)}</span> })
           } else {
-            toast({ title: "Attendance updated" })
+            toast({ title: <span className="dark:text-white">Attendance updated</span> })
           }
         }
       )
@@ -297,15 +297,15 @@ export default function EmployeeDashboardClient() {
             setRecords((cur) => cur.map((r) => (!r.checkOut ? { ...r, checkOut: row.logout_time } : r)))
             setActiveSession(null)
             try { localStorage.removeItem("timeRecords") } catch {}
-            toast({ title: "Checked out", description: formatRecordTime(row.logout_time) })
+            toast({ title: <span className="dark:text-white">Checked out</span>, description: <span className="dark:text-white">{formatRecordTime(row.logout_time)}</span> })
           } else if (loginChanged && punchedIn) {
             const rec: TimeRecord = { id: crypto.randomUUID(), date: row.date, checkIn: row.login_time }
             setRecords([rec])
             setActiveSession(rec)
             try { localStorage.setItem("timeRecords", JSON.stringify([rec])) } catch {}
-            toast({ title: "Checked in", description: formatRecordTime(row.login_time) })
+            toast({ title: <span className="dark:text-white">Checked in</span>, description: <span className="dark:text-white">{formatRecordTime(row.login_time)}</span> })
           } else {
-            toast({ title: "Attendance updated" })
+            toast({ title: <span className="dark:text-white">Attendance updated</span> })
           }
         }
       )
@@ -399,8 +399,8 @@ export default function EmployeeDashboardClient() {
         if (response.ok) {
           localStorage.removeItem("pendingPunchOut")
           toast({
-            title: "Session Restored",
-            description: "Your previous session was automatically closed.",
+            title: <span className="dark:text-white">Session Restored</span>,
+            description: <span className="dark:text-white">Your previous session was automatically closed.</span>,
           })
         }
       } catch (err) {
@@ -431,7 +431,7 @@ export default function EmployeeDashboardClient() {
           })
           if (res.ok) {
             try { localStorage.removeItem("lastAutoPunchOutTs") } catch {}
-            toast({ title: "Session corrected" })
+            toast({ title: <span className="dark:text-white">Session corrected</span> })
             fetchUserData()
           }
         } catch {}
@@ -534,18 +534,18 @@ export default function EmployeeDashboardClient() {
       setIsPunchedIn(false)
       try { localStorage.removeItem("timeRecords") } catch {}
       try { localStorage.setItem("lastAutoPunchOutTs", nowIso) } catch {}
-      toast({ title: "Auto Punch-Out", description: "Checked out on logout" })
+      toast({ title: <span className="dark:text-white">Auto Punch-Out</span>, description: <span className="dark:text-white">Checked out on logout</span> })
       return true
     } catch (err) {
       try { localStorage.setItem("pendingPunchOut", JSON.stringify({ timestamp: nowIso, trigger })) } catch {}
-      toast({ title: "Auto punch-out pending", variant: "destructive" })
+      toast({ title: <span className="dark:text-white">Auto punch-out pending</span>, variant: "destructive" })
       return false
     }
   }
 
   const handleCheckIn = async () => {
     if (activeSession) {
-      toast({ title: "Already checked in", variant: "destructive" })
+      toast({ title: <span className="dark:text-white">Already checked in</span>, variant: "destructive" })
       return
     }
 
@@ -560,7 +560,7 @@ export default function EmployeeDashboardClient() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
-        toast({ title: "Not authenticated", variant: "destructive" })
+        toast({ title: <span className="dark:text-white">Not authenticated</span>, variant: "destructive" })
         return
       }
 
@@ -586,16 +586,16 @@ export default function EmployeeDashboardClient() {
         localStorage.setItem("timeRecords", JSON.stringify([newRecord]))
       } catch { }
 
-      toast({ title: "Checked in", description: formatRecordTime(nowIso) })
+      toast({ title: <span className="dark:text-white">Checked in</span>, description: <span className="dark:text-white">{formatRecordTime(nowIso)}</span> })
       fetchUserData()
     } catch (error: any) {
-      toast({ title: "Punch in failed", description: error?.message, variant: "destructive" })
+      toast({ title: <span className="dark:text-white">Punch in failed</span>, description: <span className="dark:text-white">{error?.message}</span>, variant: "destructive" })
     }
   }
 
   const handleCheckOut = async () => {
     if (!activeSession) {
-      toast({ title: "No active session", variant: "destructive" })
+      toast({ title: <span className="dark:text-white">No active session</span>, variant: "destructive" })
       return
     }
 
@@ -604,7 +604,7 @@ export default function EmployeeDashboardClient() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
-        toast({ title: "Not authenticated", variant: "destructive" })
+        toast({ title: <span className="dark:text-white">Not authenticated</span>, variant: "destructive" })
         return
       }
 
@@ -625,17 +625,17 @@ export default function EmployeeDashboardClient() {
         localStorage.removeItem("timeRecords")
       } catch { }
 
-      toast({ title: "Checked out", description: formatRecordTime(nowIso) })
+      toast({ title: <span className="dark:text-white">Checked out</span>, description: <span className="dark:text-white">{formatRecordTime(nowIso)}</span> })
       fetchUserData()
     } catch (error: any) {
-      toast({ title: "Punch out failed", description: error?.message, variant: "destructive" })
+      toast({ title: <span className="dark:text-white">Punch out failed</span>, description: <span className="dark:text-white">{error?.message}</span>, variant: "destructive" })
     }
   }
 
   const submitLate = async () => {
     const finalReason = `${lateReasonPreset ? `${lateReasonPreset}: ` : ""}${lateReason.trim()}`
     if (!finalReason.trim()) {
-      toast({ title: "Reason required", variant: "destructive" })
+      toast({ title: <span className="dark:text-white">Reason required</span>, variant: "destructive" })
       return
     }
 
@@ -671,10 +671,10 @@ export default function EmployeeDashboardClient() {
       setLateDialogOpen(false)
       setLateReason("")
       setLateReasonPreset("")
-      toast({ title: "Punched in (late)", description: formatRecordTime(nowIso) })
+      toast({ title: <span className="dark:text-white">Punched in (late)</span>, description: <span className="dark:text-white">{formatRecordTime(nowIso)}</span> })
       fetchUserData()
     } catch (error: any) {
-      toast({ title: "Failed", description: error?.message, variant: "destructive" })
+      toast({ title: <span className="dark:text-white">Failed</span>, description: <span className="dark:text-white">{error?.message}</span>, variant: "destructive" })
     }
   }
 
