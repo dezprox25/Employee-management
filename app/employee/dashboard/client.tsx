@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea"
 import { DashboardHeader } from "@/components/employee/DashboardHeader"
 import { useHeartbeat } from "@/hooks/use-heartbeat"
+import { useTheme } from "next-themes"
 
 interface UserData {
   name: string
@@ -39,12 +40,41 @@ interface TimeRecord {
   date: string
   checkIn: string
   checkOut?: string
+  rowId?: number
+}
+
+export function isFutureTimestamp(iso: string) {
+  try {
+    return new Date(iso).getTime() - Date.now() > 60 * 1000
+  } catch {
+    return false
+  }
+}
+
+export function computeTotalHours(loginIso: string, logoutIso: string) {
+  try {
+    const start = new Date(loginIso).getTime()
+    const end = new Date(logoutIso).getTime()
+    return Math.max(0, (end - start) / (1000 * 60 * 60))
+  } catch {
+    return 0
+  }
+}
+
+export function closeLatestOpenSession(rows: Array<{ id: number; login_time: string; logout_time?: string }>, nowIso: string) {
+  const idx = rows.findIndex((r) => !r.logout_time)
+  if (idx === -1) return rows
+  const r = rows[idx]
+  const total = computeTotalHours(r.login_time, nowIso)
+  const updated = { ...r, logout_time: nowIso }
+  return rows.map((row, i) => (i === idx ? updated : row))
 }
 
 export default function EmployeeDashboardClient() {
   const { toast } = useToast()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { resolvedTheme } = useTheme()
 
   const [userData, setUserData] = useState<UserData | null>(null)
   const [computedUsedLeaves, setComputedUsedLeaves] = useState<number | null>(null)
@@ -80,6 +110,15 @@ export default function EmployeeDashboardClient() {
     ],
     []
   )
+
+  useEffect(() => {
+    try {
+      const a = new Image()
+      a.src = "/dezprox horizontal black logo.png"
+      const b = new Image()
+      b.src = "/dezprox horizontal white logo.png"
+    } catch {}
+  }, [])
 
   const fetchUserData = useCallback(async () => {
     const supabase = createClient()
@@ -182,6 +221,7 @@ export default function EmployeeDashboardClient() {
           id: crypto.randomUUID(),
           date: today,
           checkIn: attendance.login_time,
+          rowId: typeof attendance.id === "number" ? attendance.id : undefined,
         }
         setRecords([newRecord])
         setActiveSession(newRecord)
@@ -271,7 +311,7 @@ export default function EmployeeDashboardClient() {
           const punchedIn = !!(row.login_time && !row.logout_time)
           setIsPunchedIn(punchedIn)
           if (punchedIn) {
-            const rec: TimeRecord = { id: crypto.randomUUID(), date: row.date, checkIn: row.login_time }
+            const rec: TimeRecord = { id: crypto.randomUUID(), date: row.date, checkIn: row.login_time, rowId: typeof row.id === "number" ? row.id : undefined }
             setRecords([rec])
             setActiveSession(rec) 
             try { localStorage.setItem("timeRecords", JSON.stringify([rec])) } catch {}
@@ -299,7 +339,7 @@ export default function EmployeeDashboardClient() {
             try { localStorage.removeItem("timeRecords") } catch {}
             toast({ title: <span className="dark:text-white">Checked out</span>, description: <span className="dark:text-white">{formatRecordTime(row.logout_time)}</span> })
           } else if (loginChanged && punchedIn) {
-            const rec: TimeRecord = { id: crypto.randomUUID(), date: row.date, checkIn: row.login_time }
+            const rec: TimeRecord = { id: crypto.randomUUID(), date: row.date, checkIn: row.login_time, rowId: typeof row.id === "number" ? row.id : undefined }
             setRecords([rec])
             setActiveSession(rec)
             try { localStorage.setItem("timeRecords", JSON.stringify([rec])) } catch {}
@@ -512,6 +552,15 @@ export default function EmployeeDashboardClient() {
     }
   }
 
+  const isFutureTimestamp = (iso: string) => {
+    try {
+      const diff = new Date(iso).getTime() - Date.now()
+      return diff > 60 * 1000
+    } catch {
+      return false
+    }
+  }
+
   const performAutoPunchOut = async (trigger: string) => {
     if (!isPunchedIn || !userId || punchOutSentRef.current) return false
     punchOutSentRef.current = true
@@ -556,6 +605,10 @@ export default function EmployeeDashboardClient() {
     }
 
     const nowIso = new Date().toISOString()
+    if (isFutureTimestamp(nowIso)) {
+      toast({ title: <span className="dark:text-white">Invalid time</span>, description: <span className="dark:text-white">Future-dated punch is not allowed</span>, variant: "destructive" })
+      return
+    }
     try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
@@ -564,17 +617,42 @@ export default function EmployeeDashboardClient() {
         return
       }
 
-      await supabase.from("attendance").insert({
-        user_id: user.id,
-        date: nowIso.split("T")[0],
-        login_time: nowIso,
-        status: "present",
-      })
+      const today = nowIso.split("T")[0]
+      const { data: openRows, error: openErr } = await supabase
+        .from("attendance")
+        .select("id, login_time, logout_time")
+        .eq("user_id", user.id)
+        .eq("date", today)
+        .is("logout_time", null)
+        .order("login_time", { ascending: false })
+        .limit(1)
+
+      if (openErr) {
+        toast({ title: <span className="dark:text-white">Punch in failed</span>, description: <span className="dark:text-white">Unable to check existing sessions</span>, variant: "destructive" })
+        return
+      }
+
+      if (openRows && openRows.length > 0) {
+        toast({ title: <span className="dark:text-white">Already checked in</span>, description: <span className="dark:text-white">An active session exists</span>, variant: "destructive" })
+        return
+      }
+
+      const { data: insertedRow, error: insErr } = await supabase
+        .from("attendance")
+        .insert({ user_id: user.id, date: today, login_time: nowIso, status: "present" })
+        .select("id, date, login_time")
+        .single()
+
+      if (insErr || !insertedRow) {
+        toast({ title: <span className="dark:text-white">Punch in failed</span>, description: <span className="dark:text-white">Database error</span>, variant: "destructive" })
+        return
+      }
 
       const newRecord: TimeRecord = {
         id: crypto.randomUUID(),
-        date: nowIso.split("T")[0],
-        checkIn: nowIso,
+        date: insertedRow.date,
+        checkIn: insertedRow.login_time,
+        rowId: insertedRow.id as number,
       }
 
       setRecords([newRecord])
@@ -585,6 +663,10 @@ export default function EmployeeDashboardClient() {
       try {
         localStorage.setItem("timeRecords", JSON.stringify([newRecord]))
       } catch { }
+
+      try {
+        await supabase.from("attendance_events").insert({ user_id: user.id, punch_type: "in", ts: nowIso, status: "present" })
+      } catch {}
 
       toast({ title: <span className="dark:text-white">Checked in</span>, description: <span className="dark:text-white">{formatRecordTime(nowIso)}</span> })
       fetchUserData()
@@ -600,6 +682,10 @@ export default function EmployeeDashboardClient() {
     }
 
     const nowIso = new Date().toISOString()
+    if (isFutureTimestamp(nowIso)) {
+      toast({ title: <span className="dark:text-white">Invalid time</span>, description: <span className="dark:text-white">Future-dated punch is not allowed</span>, variant: "destructive" })
+      return
+    }
     try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
@@ -608,14 +694,47 @@ export default function EmployeeDashboardClient() {
         return
       }
 
-      const loginDate = new Date(activeSession.checkIn)
-      const totalHours = (Date.now() - loginDate.getTime()) / (1000 * 60 * 60)
+      const today = nowIso.split("T")[0]
+      const { data: openRows, error: selErr } = await supabase
+        .from("attendance")
+        .select("id, login_time, logout_time")
+        .eq("user_id", user.id)
+        .eq("date", today)
+        .order("login_time", { ascending: false })
+        .limit(3)
 
-      await supabase
+      if (selErr) {
+        toast({ title: <span className="dark:text-white">Punch out failed</span>, description: <span className="dark:text-white">Unable to read attendance</span>, variant: "destructive" })
+        return
+      }
+
+      const openRow = (openRows || []).find((r: any) => !r.logout_time)
+      if (!openRow) {
+        toast({ title: <span className="dark:text-white">No active session</span>, description: <span className="dark:text-white">Cannot punch out before punching in</span>, variant: "destructive" })
+        return
+      }
+
+      const loginMs = new Date(openRow.login_time as string).getTime()
+      const logoutMs = new Date(nowIso).getTime()
+      if (logoutMs < loginMs) {
+        toast({ title: <span className="dark:text-white">Invalid sequence</span>, description: <span className="dark:text-white">Punch out cannot be before punch in</span>, variant: "destructive" })
+        return
+      }
+
+      const totalHours = Math.max(0, (logoutMs - loginMs) / (1000 * 60 * 60))
+
+      const { data: updatedRow, error: updErr } = await supabase
         .from("attendance")
         .update({ logout_time: nowIso, total_hours: totalHours })
-        .eq("user_id", user.id)
-        .eq("date", nowIso.split("T")[0])
+        .eq("id", openRow.id)
+        .is("logout_time", null)
+        .select("id, logout_time")
+        .single()
+
+      if (updErr || !updatedRow) {
+        toast({ title: <span className="dark:text-white">Punch out failed</span>, description: <span className="dark:text-white">Concurrent modification detected</span>, variant: "destructive" })
+        return
+      }
 
       setActiveSession(null)
       setIsPunchedIn(false)
@@ -624,6 +743,10 @@ export default function EmployeeDashboardClient() {
       try {
         localStorage.removeItem("timeRecords")
       } catch { }
+
+      try {
+        await supabase.from("attendance_events").insert({ user_id: user.id, punch_type: "out", ts: nowIso, status: "present" })
+      } catch {}
 
       toast({ title: <span className="dark:text-white">Checked out</span>, description: <span className="dark:text-white">{formatRecordTime(nowIso)}</span> })
       fetchUserData()
@@ -710,8 +833,13 @@ export default function EmployeeDashboardClient() {
           )}
         >
           <div className="flex items-center justify-between p-6 border-b">
-            <img src="/dezprox horizontal black logo.png" alt="Logo" className="h-8 dark:hidden" />
-            <img src="/dezprox horizontal white logo.png" alt="Logo" className="h-8 hidden dark:block" />
+            <img
+              src={resolvedTheme === "dark" ? "/dezprox horizontal white logo.png" : "/dezprox horizontal black logo.png"}
+              alt="Logo"
+              className="h-8"
+              loading="eager"
+              fetchPriority="high"
+            />
             <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(false)}>
               <X className="h-5 w-5" />
             </Button>

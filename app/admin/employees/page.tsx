@@ -32,6 +32,7 @@ export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [csrfToken, setCsrfToken] = useState("")
   const [newEmployee, setNewEmployee] = useState({
     name: "",
     email: "",
@@ -117,6 +118,17 @@ export default function EmployeesPage() {
     }
     checkRoleAndLoad()
   }, [])
+
+  useEffect(() => {
+    if (!isAddDialogOpen) return
+    try {
+      const token = (typeof crypto !== "undefined" && (crypto as any).randomUUID) ? (crypto as any).randomUUID() : String(Math.random()).slice(2)
+      setCsrfToken(token)
+      if (typeof document !== "undefined") {
+        document.cookie = `csrf_token=${encodeURIComponent(token)}; SameSite=Strict; path=/`
+      }
+    } catch {}
+  }, [isAddDialogOpen])
 
   // Server-side pagination and search only
   const fetchEmployeesPage = useCallback(async (newPage: number, newPageSize: number, searchOverride?: string) => {
@@ -237,8 +249,8 @@ export default function EmployeesPage() {
         toast({ variant: "destructive", title: "Invalid email", description: "Please enter a valid email address" })
         return
       }
-      if (password.length < 6) {
-        toast({ variant: "destructive", title: "Weak password", description: "Password must be at least 6 characters" })
+      if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+        toast({ variant: "destructive", title: "Weak password", description: "Password must be at least 8 characters with letters and numbers" })
         return
       }
 
@@ -247,7 +259,7 @@ export default function EmployeesPage() {
 
       const res = await fetch("/api/admin/create-employee", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
         body: JSON.stringify({
           name,
           email,
@@ -289,7 +301,7 @@ export default function EmployeesPage() {
         return
       }
 
-      toast({ title: "Success", description: "Employee account created" })
+      toast({ title: "Success", description: "Employee account created. Welcome email is being sent." })
       setIsAddDialogOpen(false)
       setNewEmployee({ name: "", email: "", position: "", type: "fulltime", password: "" })
       fetchEmployeesPage(page, pageSize)
