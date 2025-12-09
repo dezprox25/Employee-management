@@ -3,10 +3,10 @@
 import { createClient } from "@/lib/supabase/client"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
+// import { Button } from "@/components/ui/button"
 import { useEffect } from "react"
 import { CardEntrance } from "@/components/animations/card-entrance"
-import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler"
+// import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler"
 import Image from "next/image"
 import { InteractiveHoverButton } from "@/components/ui/interactive-hover-button"
 
@@ -66,6 +66,14 @@ export default function Home() {
                     Assemble !
                   </Button> */}
                 </Link>
+                {/* <Link href="/docs" className="ml-4">
+                  <Button
+                    size="lg"
+                    className="gap-2 bg-green-600 text-white hover:opacity-90 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#3FA740] rounded-xl"
+                  >
+                    Project Documentation
+                  </Button>
+                </Link> */}
               </div>
             </div>
           </div>

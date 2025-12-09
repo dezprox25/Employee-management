@@ -73,6 +73,10 @@ export function DashboardHeader({
     const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([])
     const [notifLoading, setNotifLoading] = useState(false)
     const [feedbackLoading, setFeedbackLoading] = useState(false)
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+    const [isDeletingOne, setIsDeletingOne] = useState(false)
+    const [bulkConfirmOpenFeedback, setBulkConfirmOpenFeedback] = useState(false)
+    const [bulkDeletingFeedback, setBulkDeletingFeedback] = useState(false)
     const [confirmClearOpen, setConfirmClearOpen] = useState(false)
     const [deletingAll, setDeletingAll] = useState(false)
     const [removingId, setRemovingId] = useState<string | null>(null)
@@ -134,6 +138,47 @@ export function DashboardHeader({
             if (typeof window !== "undefined") window.open(url, "_blank", "noopener,noreferrer")
         } catch {
             toast({ variant: "destructive", title: "Attachment error" })
+        }
+    }
+
+    const confirmDeleteFeedback = async () => {
+        if (!confirmDeleteId) return
+        try {
+            setIsDeletingOne(true)
+            const res = await fetch("/api/admin/delete-feedback", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ feedback_id: Number(confirmDeleteId) }),
+            })
+            const j = await res.json().catch(() => ({}))
+            if (!res.ok || !j?.ok) throw new Error(j?.error || `Server returned ${res.status}`)
+            setFeedbacks((cur) => cur.filter((f) => String(f.id) !== String(confirmDeleteId)))
+            toast({ title: "Feedback deleted" })
+            setConfirmDeleteId(null)
+        } catch (e: any) {
+            toast({ variant: "destructive", title: "Delete failed", description: e?.message || "Try again later" })
+        } finally {
+            setIsDeletingOne(false)
+        }
+    }
+
+    const handleBulkDeleteFeedback = async () => {
+        try {
+            setBulkDeletingFeedback(true)
+            const res = await fetch("/api/admin/clear-feedback", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ statuses: ["resolved", "reviewed"] }),
+            })
+            const j = await res.json().catch(() => ({}))
+            if (!res.ok || !j?.ok) throw new Error(j?.error || `Server returned ${res.status}`)
+            setFeedbacks((cur) => cur.filter((f) => !(f.status === "resolved" || f.status === "reviewed")))
+            toast({ title: "Feedback cleared" })
+            setBulkConfirmOpenFeedback(false)
+        } catch (e: any) {
+            toast({ variant: "destructive", title: "Clear failed", description: e?.message || "Try again later" })
+        } finally {
+            setBulkDeletingFeedback(false)
         }
     }
 
@@ -359,8 +404,8 @@ export function DashboardHeader({
                                 <Button variant="ghost" size="icon" className="rounded-full" aria-label="Open feedback">
                                     <HelpCircle className="h-5 w-5" />
                                 </Button>
-                                <div className="absolute w-52 -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all bg-black text-white text-xs px-2 py-1 rounded">
-                                    Need any help contact the devloper
+                                <div className="absolute w-40 -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all bg-black text-white text-xs px-2 py-1 rounded">
+                                    Click to see the feedbacks
                                 </div>
                             </div>
                         </SheetTrigger>
@@ -371,6 +416,14 @@ export function DashboardHeader({
                             </SheetHeader>
                             <div className="px-4 pb-4 flex items-center justify-between">
                                 <div className="text-sm text-muted-foreground">Total: {feedbacks.length}</div>
+                                <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => setBulkConfirmOpenFeedback(true)}
+                                    aria-label="Clear all feedback"
+                                >
+                                    {bulkDeletingFeedback ? "Clearing..." : "Clear All Feedback"}
+                                </Button>
                             </div>
                             <div className="p-4 space-y-4 overflow-y-auto h-full" aria-label="Feedback list">
                                 {feedbackLoading ? (
@@ -426,6 +479,16 @@ export function DashboardHeader({
                                                                 </div>
                                                                 <div className="flex items-center gap-3">
                                                                     <div className="text-xs text-muted-foreground">{fmt(n.ts)}</div>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        aria-label={`Delete feedback by ${n.name}`}
+                                                                        title="Delete feedback"
+                                                                        onClick={() => setConfirmDeleteId(String(n.id))}
+                                                                        disabled={isDeletingOne && String(confirmDeleteId) === String(n.id)}
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    </Button>
                                                                 </div>
                                                             </div>
                                                         ))}
@@ -436,6 +499,41 @@ export function DashboardHeader({
                                     })()
                                 )}
                             </div>
+                            <Dialog open={!!confirmDeleteId} onOpenChange={(o) => { if (!o) setConfirmDeleteId(null) }}>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Delete this feedback?</DialogTitle>
+                                        <DialogDescription>Only the selected item will be removed.</DialogDescription>
+                                    </DialogHeader>
+                                    <DialogFooter>
+                                        <Button variant="outline" onClick={() => setConfirmDeleteId(null)} aria-label="Cancel delete">Cancel</Button>
+                                        <Button variant="destructive" onClick={confirmDeleteFeedback} disabled={isDeletingOne} aria-label="Confirm delete">{isDeletingOne ? "Deleting..." : "Delete"}</Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+                            <Dialog open={bulkConfirmOpenFeedback} onOpenChange={setBulkConfirmOpenFeedback}>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Clear all resolved feedback?</DialogTitle>
+                                        <DialogDescription>Items marked as resolved or reviewed will be deleted.</DialogDescription>
+                                    </DialogHeader>
+                                    <div className="max-h-[40vh] overflow-auto text-sm">
+                                        {feedbacks.filter((f) => f.status === "resolved" || f.status === "reviewed").length === 0 ? (
+                                            <div className="text-muted-foreground">No resolved feedback to delete</div>
+                                        ) : (
+                                            <ul className="space-y-2">
+                                                {feedbacks.filter((f) => f.status === "resolved" || f.status === "reviewed").map((f) => (
+                                                    <li key={`del-${f.id}`}>{f.name} • {f.description.slice(0, 80)}{f.description.length > 80 ? "…" : ""}</li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+                                    <DialogFooter>
+                                        <Button variant="outline" onClick={() => setBulkConfirmOpenFeedback(false)} aria-label="Cancel clear">Cancel</Button>
+                                        <Button variant="destructive" onClick={handleBulkDeleteFeedback} disabled={bulkDeletingFeedback} aria-label="Confirm clear">{bulkDeletingFeedback ? "Clearing..." : "Proceed"}</Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
                         </SheetContent>
                     </Sheet>
                     <Dialog open={imageOpen} onOpenChange={(o) => { setImageOpen(o); if (!o) { setImageSrc(null); setImageScale(1) } }}>
